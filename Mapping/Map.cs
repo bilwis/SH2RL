@@ -103,7 +103,10 @@ namespace ShootyShootyRL.Mapping
 
             //Can't fly!
             if (!IsMovementPossibleDrop(abs_x, abs_y, abs_z))
+            {
+                Debug.WriteLine("NAY!");
                 return false;
+            }
 
             //Not the same cell anymore? Better load the new ones!
             if (relCellID != currentCellId)
@@ -903,13 +906,13 @@ namespace ShootyShootyRL.Mapping
 
         public int DropObject(int abs_x, int abs_y, int curr_z)
         {
-            string t = "", t2;
+            string t_cur = "", t_above;
 
             for (int i = curr_z + 1; i > cells[1, 1, 0].Z; i--)
             {
-                t2 = t;
-                t = getTileFromCells(abs_x, abs_y, i).Name;
-                if (t != "Air" && t2 == "Air")
+                t_above = t_cur;
+                t_cur = getTileFromCells(abs_x, abs_y, i).Name;
+                if (t_cur != "Air" && t_above == "Air")
                     return i+1;
             }
             return -1;
@@ -948,17 +951,29 @@ namespace ShootyShootyRL.Mapping
             Tile tar = getTileFromCells(abs_x, abs_y, abs_z);
             //Tile tar = getTileFromCells(abs_x, abs_y, DropObject(abs_x, abs_y, abs_z));
             if (tar == null)
+            {
+                Debug.WriteLine("Movement denied: Tile nonexistant.");
                 return false;
+            }
+
 
             //If target Tile blocks movement, deny movement
             if (tar.BlocksMovement)
+            {
+                Debug.WriteLine("Movement denied: Tile blocks movement.");
                 return false;
+            }
+
 
             //If target Tile is occupied by another creature, deny movement (TODO: Attacking)
             foreach (KeyValuePair<string, Creature> kv in CreatureList)
             {
                 if (kv.Value.X == abs_x && kv.Value.Y == abs_y && kv.Value.Z == abs_z)
+                {
+                    Debug.WriteLine("Movement denied: Tile occupied.");
                     return false;
+                }
+
             }
 
             return true;
@@ -966,9 +981,6 @@ namespace ShootyShootyRL.Mapping
 
         public bool IsMovementPossibleDrop(int abs_x, int abs_y, int abs_z)
         {
-            if (getInternalCellPosFromID(wm.GetCellIDFromCoordinates(abs_x, abs_y, cells[1,1,1].Z)) == null)
-                return false;
-
             return IsMovementPossible(abs_x, abs_y, DropObject(abs_x, abs_y, abs_z));
         }
 

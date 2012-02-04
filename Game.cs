@@ -154,7 +154,7 @@ namespace ShootyShootyRL
             wm = new WorldMap("test.map");
             map = new Map(player, wm, Out, facman, dbconn);
 
-            player.SetPosition(320,320, map.DropObject(320, 320, 15) +1);
+            player.SetPosition(300,300, map.DropObject(300, 300, 15) +1);
 
             //testai = new AICreature(302, 300, 15, "TEST", "TEST CREATURE PLEASE IGNORE", 'A');
             //testai.Init(TCODColor.orange, Out, test_faction, new Objects.Action(ActionType.Idle, null, testai, 0.0d), new WalkerAI(rand.Next(0, 100000000)), map);
@@ -283,17 +283,22 @@ namespace ShootyShootyRL
             #endregion
 
             if (key.KeyCode == TCODKeyCode.F1)
-                map.UnloadItem(test_item_guid);
+            {
+                tar_x = 300;
+                tar_y = 300;
+                tar_z = map.DropObject(300, 300, 28);
+                return true;
+            }
+            
 
             if (key.KeyCode == TCODKeyCode.F2)
-                map.LoadItem(test_item_guid);
-
-            if (key.KeyCode == TCODKeyCode.F5)
-                map.UnloadAICreature(testai_guid);
-
-            if (key.KeyCode == TCODKeyCode.F6)
-                map.LoadAICreature(testai_guid);
-
+            {
+                tar_x = 300;
+                tar_y = 300;
+                tar_z = map.DropObject(300, 300, 12);
+                return true;
+            }
+            
 
             if (key.KeyCode == TCODKeyCode.Escape)
             {

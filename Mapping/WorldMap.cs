@@ -26,6 +26,8 @@ namespace ShootyShootyRL.Mapping
         public static int GLOBAL_DEPTH = CELLS_Z * CELL_DEPTH;
 
         public static float HEIGHTMAP_SCALER = 1.0f;
+        public static int HEIGHTMAP_NORMALIZER_LOW = 7;
+        public static int HEIGHTMAP_NORMALIZER_HIGH = GLOBAL_DEPTH / 2;
 
         public static byte TILE_AIR = 0;
         public static byte TILE_DIRT = 1;
@@ -137,7 +139,7 @@ namespace ShootyShootyRL.Mapping
             Console.WriteLine("done!");
             Console.WriteLine("Heightmap export took " + hmsw.ElapsedMilliseconds + "ms.");
 
-            map.normalize(7, CELLS_Z * CELL_DEPTH / 4);
+            map.normalize(HEIGHTMAP_NORMALIZER_LOW, HEIGHTMAP_NORMALIZER_HIGH);
               
             //All other stuff
             
@@ -254,21 +256,34 @@ namespace ShootyShootyRL.Mapping
 
         private byte generateTerrain(int x, int y, int z, float hm_val, double rand)
         {
+            for (int st = 0; st < 9; st++)
+            {
+                if (x == 325+st && y == 300 && z >= 12+st)
+                    return TILE_AIR;
+                if (x == 325+st && y == 300 && z == 11+st)
+                    return TILE_GRAVEL;
+            }
+
+            if (x > 318 && x < 325 && y == 300 && z == 11)
+                return TILE_AIR;
+            if (x > 318 && x < 325 && y == 300 && z == 10)
+                return TILE_GRAVEL;
+
+            
+
             if (x > 280 && x < 320)
             {
                 if (y > 280 && y < 320)
                 {
-                    
-                    if (x == 300 && y == 281 && (z == 11 || z == 11))
-                        return TILE_AIR;
-                    if (z == 10)
+                    if ((y == 281 || y == 319) && (z > 10 && z < 21))
+                        return TILE_STONE_WALL;
+                    if ((x == 281 || x == 319) && (z > 10 && z < 21))
+                        return TILE_STONE_WALL;
+                    if (z < 10)
                         return TILE_GRAVEL;
-                    if (z == 15)
+                    if (z == 10 || z == 20)
                         return TILE_STONE_WALL;
-                    if (y == 281 || y == 319)
-                        return TILE_STONE_WALL;
-                    if (x == 281 || x == 319)
-                        return TILE_STONE_WALL;
+
                     return TILE_AIR;
                 }
             }

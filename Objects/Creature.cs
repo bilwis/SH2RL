@@ -66,7 +66,7 @@ namespace ShootyShootyRL.Objects
 
             if (!flying)
             {
-                if (m.IsMovementPossibleDrop(x, y,z))
+                if (m.IsMovementPossibleDrop(x, y, z))
                 {
                     if (isDiag)
                         Actions.Enqueue(new Action(ActionType.Move, new MovementActionParameters(x, y, m.DropObject(x, y, z), m), this, EDiagMovementCost));
