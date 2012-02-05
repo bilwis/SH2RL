@@ -10,6 +10,22 @@ using System.Runtime.Serialization.Formatters.Binary;
 
 using ShootyShootyRL.Objects;
 
+//************************************************************//
+//*                SHOOTY SHOOTY ROGUELIKE                   *//
+//*     some really early pre-alpha version or something     *//
+//*     github.com/bilwis/sh2rl       sh2rl.blogspot.com     *//
+//*                                                          *//       
+//*contains SDL 1.2.15 (GNU LGPL), libtcod 1.5.1 (BSD), zlib *//
+//*         1.2.6 (zlib license), SQLite 3.7.10 and          *//
+//*     System.Data.SQLite 1.0.79.0, both public domain      *//
+//*                                                          *//
+//* Please don't copy my stellar source code without asking, *//
+//*  but feel free to bask in its glory and draw delicious   *//
+//*   inspiration and great knowledge from it! Thank you!    *//
+//*                                                          *//
+//* bilwis | Clemens Curio                                   *//
+//************************************************************//
+
 namespace ShootyShootyRL.Mapping
 {
     /// <summary>
@@ -746,7 +762,8 @@ namespace ShootyShootyRL.Mapping
         }
 
         /// <summary>
-        /// This function checks if an item with the given GUID is in the object DB.
+        /// This function checks if an item with the given GUID is in the object DB and returns the result of the lookup 
+        /// in an SQLiteDataReader object.
         /// </summary>
         /// <param name="lookup"></param>
         /// <param name="guid"></param>
@@ -783,17 +800,28 @@ namespace ShootyShootyRL.Mapping
             return false;
         }
 
+        /// <summary>
+        /// This function checks if an item with the given GUID is in the object DB.
+        /// </summary>
+        /// <param name="lookup"></param>
+        /// <param name="guid"></param>
+        /// <param name="reader"></param>
+        /// <returns></returns>
         private bool checkIsInDatabase(Util.DBLookupType lookup, string guid)
         {
             SQLiteDataReader derp;
             return checkIsInDatabase(lookup, guid, out derp);
         }
 
-        private bool unloadCellContent(Cell c)
+        /// <summary>
+        /// This function iterates through the content of a cell and unloads every object into DB.
+        /// </summary>
+        /// <param name="c">The cell to be unloaded.</param>
+        private void unloadCellContent(Cell c)
         {
             SQLiteCommand command = new SQLiteCommand(dbconn);
 
-            //Clear all cell content from DB
+            //Clear all exisiting cell content from DB
             command.CommandText = "DELETE FROM cell_contents WHERE cell_id='" + c.CellID + "'";
             command.ExecuteNonQuery();
 
@@ -801,7 +829,8 @@ namespace ShootyShootyRL.Mapping
             SQLiteTransaction tr = dbconn.BeginTransaction();
             command.Transaction = tr;
 
-            //Save all items
+            //Save all items by retrieving all guids and iterating through
+            //them. (Can't iterate through an IEnumerable and change it within the iteration!)
             string[] keys = ItemList.Keys.ToArray<string>();
             for (int i = 0; i < keys.Length; i++)
             {
@@ -820,13 +849,14 @@ namespace ShootyShootyRL.Mapping
                 }
             }
 
-            //Save all creatures
+            //Save all creatures (refer item saving above)
             keys = new string[CreatureList.Count];
             keys = CreatureList.Keys.ToArray<string>();
 
             for (int i = 0; i < keys.Length; i++)
             {
                 Creature cr = CreatureList[keys[i]];
+                //Only save AICreatures though (only "Creature" should be the player itself)
                 if (cr.GetType() == typeof(AICreature))
                 {
                     if (cr.X <= (c.X + WorldMap.CELL_WIDTH) && cr.X >= c.X)
@@ -844,27 +874,38 @@ namespace ShootyShootyRL.Mapping
                 }
             }
 
+            //Commit, cleanup
             tr.Commit();
             command.Dispose();
-
-            return false;
         }
 
+        /// <summary>
+        /// This function loads all content associated with the given cell ID from the database.
+        /// </summary>
+        /// <param name="id">The CellID of the cell whose content is to be loaded.</param>
         private void loadCellContent(int id)
         {
             SQLiteCommand command = new SQLiteCommand(dbconn);
 
-            //Search for the cells content references
+            //Retrieve all content GUIDs for the given cell ID
             command.CommandText = "SELECT * FROM cell_contents WHERE cell_id='" + id + "'";
             SQLiteDataReader reader = command.ExecuteReader();
 
-            //Load them items
+            //DB Results have the following format:
+            // reader[0] = cell_id
+            // reader[1] = a byte array encoding an integer encoding an Util.DBLookupType
+            // reader[2] = the GUID of the content object
+
+            //Load them objects
             int item_type;
             string content_guid;
 
             while (reader.Read())
             {
+                //Get the GUID of the content object
                 content_guid = Util.ByteArrayToString((byte[])reader[2]);
+
+                //Determine which type of content it is and call the appropriate function
                 item_type = Int32.Parse(Util.ByteArrayToString((byte[])reader[1]));
                 if (item_type == (int)Util.DBLookupType.Item)
                     LoadItem(content_guid);
@@ -872,6 +913,7 @@ namespace ShootyShootyRL.Mapping
                     LoadAICreature(content_guid);
             }
 
+            //Cleanup
             reader.Close();
             reader.Dispose();
             command.Dispose();
@@ -888,6 +930,10 @@ namespace ShootyShootyRL.Mapping
         /// <returns>An array in which the first value is the X, second is Y and third is Z, or null.</returns>
         private int[] getInternalCellPosFromID(int cellid)
         {
+            //TODO: I doubt that this is particularily performance-eating a function
+            //but there's potential to optimize here: Create a dictionary holding the
+            //cellId as key and the coordinates as value (perhaps "bitshift-encoded")
+
             int[] coord = new int[3];
 
             for (int x = 0; x < 3; x++)
@@ -896,6 +942,7 @@ namespace ShootyShootyRL.Mapping
                 {
                     for (int z = 0; z < 3; z++)
                     {
+                        //Gotcha, bietch! 
                         if (cells[x, y, z].CellID == cellid)
                         {
                             coord[0] = x;
@@ -907,17 +954,20 @@ namespace ShootyShootyRL.Mapping
                 }
             }
 
+            //No Cell with the given Id was found!
             return null;
         }
 
+        /// <summary>
+        /// This function retrieves the ID of the tile at the given location.
+        /// </summary>
+        /// <returns>A byte representing the tile at the given location or 0 if the cell holding the tile is not loaded.</returns>
         private byte getTileIDFromCells(int abs_x, int abs_y, int abs_z)
         {
             int x = 0, y = 0, z = 0;
-            if (abs_x < cells[0, 0, 0].X || abs_x > cells[2, 0, 0].X + WorldMap.CELL_WIDTH)
-                return 0;
-            if (abs_y < cells[0, 0, 0].Y || abs_y > cells[0, 2, 0].Y + WorldMap.CELL_HEIGHT)
-                return 0;
-            if (abs_z < cells[0, 0, 0].Z || abs_z >= cells[0, 0, 2].Z + WorldMap.CELL_DEPTH)
+            
+            //Check if coordinates are within loaded map area
+            if (!isCoordinateLoaded(abs_x, abs_y, abs_z))
                 return 0;
 
             x = (int)((abs_x - cells[0, 0, 0].X) / WorldMap.CELL_WIDTH);
@@ -927,15 +977,17 @@ namespace ShootyShootyRL.Mapping
             return cells[x, y, z].GetTileID(abs_x, abs_y, abs_z);
 
         }
-        
+
+        /// <summary>
+        /// This function retrieves the Tile object stored in the map at the given location.
+        /// </summary>
+        /// <returns>A Tile object or null if the cell holding the tile is not loaded.</returns>
         private Tile getTileFromCells(int abs_x, int abs_y, int abs_z)
         {
             int x = 0, y = 0, z = 0;
-            if (abs_x < cells[0, 0, 0].X || abs_x > cells[2, 0, 0].X + WorldMap.CELL_WIDTH)
-                return null;
-            if (abs_y < cells[0, 0, 0].Y || abs_y > cells[0, 2, 0].Y + WorldMap.CELL_HEIGHT)
-                return null;
-            if (abs_z < cells[0, 0, 0].Z || abs_z > cells[0, 0, 2].Z + WorldMap.CELL_DEPTH)
+
+            //Check if coordinates are within loaded map area
+            if (!isCoordinateLoaded(abs_x, abs_y, abs_z))
                 return null;
 
             x = (int)((abs_x - cells[0, 0, 0].X) / WorldMap.CELL_WIDTH);
@@ -945,11 +997,26 @@ namespace ShootyShootyRL.Mapping
             return cells[x, y, z].GetTile(abs_x, abs_y, abs_z);
                      
         }
+
+        /// <summary>
+        /// This function checks wheter the given coordinates are within the bounds of the loaded cells.
+        /// </summary>
+        /// <returns>True, if the coordinate point at a loaded tile, False if not.</returns>
+        private bool isCoordinateLoaded(int abs_x, int abs_y, int abs_z)
+        {
+            if (abs_x < cells[0, 0, 0].X || abs_x > cells[2, 0, 0].X + WorldMap.CELL_WIDTH)
+                return false;
+            if (abs_y < cells[0, 0, 0].Y || abs_y > cells[0, 2, 0].Y + WorldMap.CELL_HEIGHT)
+                return false;
+            if (abs_z < cells[0, 0, 0].Z || abs_z > cells[0, 0, 2].Z + WorldMap.CELL_DEPTH)
+                return false;
+
+            return true;
+        }
         
+        [Obsolete("Use DropObject instead, this function only checks from the topmost tile")]
         public int GetGround(int abs_x, int abs_y)
         {
-            throw new NotImplementedException();
-
             string t = "Air", t2;
 
             for (int i = cells[1, 1, 2].Z + WorldMap.CELL_DEPTH - 1; i > cells[1, 1, 0].Z; i--)
@@ -961,24 +1028,26 @@ namespace ShootyShootyRL.Mapping
             }
 
             return -1;
-
-            /*
-            string t = "Air", t2;
-
-            for (int i = cells[1,1,0].Z; i < cells[1,1,2].Z+WorldMap.CELL_DEPTH; i++)
-            {
-                t2 = t;
-                t = getTileFromCells(abs_x, abs_y, i).Name;
-                if (t == "Air" && t2 != "Air")
-                    return i;
-            }
-
-            return -1;*/
         }
 
+        /// <summary>
+        /// This function determines the z-coordinate of object if dropped at the given location.
+        /// </summary>
+        /// <param name="curr_z">The z-level from which to drop the object.</param>
+        /// <returns>The z-level at which the object will rest when dropped or -1 if no ground was hit.</returns>
         public int DropObject(int abs_x, int abs_y, int curr_z)
         {
             string t_cur = "", t_above;
+
+            //Work from curr_z+1* to the bottom:
+            // Assign t_above the previous Tile, fetch the current tile in t_cur
+            // Check if t_cur is NOT air AND t_above IS air (ground was hit)
+            //
+            //NOTE: This function returns not the z-level of the actual ground tile
+            //but the z-level above (due to the way that object OCCUPY the tile they
+            //are located in, they have to STAND ON TOP of the ground tile).
+            //
+            //IMPORTANT: * why curr_z+1? Creatures can negotiate z-level changes of +1!
 
             for (int i = curr_z + 1; i > cells[1, 1, 0].Z; i--)
             {
@@ -990,49 +1059,59 @@ namespace ShootyShootyRL.Mapping
             return -1;
         }
 
-        public void AddCreature(Creature c)
+        /// <summary>
+        /// This function will register the given creature with the maps creature dictionaries.
+        /// </summary>
+        public bool AddCreature(Creature c)
         {
             //Check if creature is within one of the loaded cells
-            int[] cell_coords = getInternalCellPosFromID(wm.GetCellIDFromCoordinates(c.X, c.Y, c.Z));
+            if (isCoordinateLoaded(c.X, c.Y, c.Z) == null)
+                return false;
 
-            if (cell_coords == null)
-                return;
-                //throw new Exception("Error while trying to add creature: Creature position is not within loaded Map Cells!");
-
+            //Add to dictionaries
             CreatureList.Add(c.GUID, c);
             CreaturesByDistance.Add(c.GUID, Util.CalculateDistance(Player, c));
+            return true;
         }
 
-        public void AddItem(Item i)
+        /// <summary>
+        /// This function will register the given item with the maps item dictionary.
+        /// </summary>
+        public bool AddItem(Item i)
         {
             //Check if item is within one of the loaded cells
-            int[] cell_coords = getInternalCellPosFromID(wm.GetCellIDFromCoordinates(i.X, i.Y, i.Z));
-
-            if (cell_coords == null)
-                return;
-                //throw new Exception("Error while trying to add item: Item position is not within loaded Map Cells!");
+            if (isCoordinateLoaded(i.X, i.Y, i.Z) == null)
+                return false;
 
             ItemList.Add(i.GUID, i);
+            return true;
         }
 
+        /// <summary>
+        /// This function checks wheter a creature can legally move to the given position.
+        /// </summary>
         public bool IsMovementPossible(int abs_x, int abs_y, int abs_z)
         {
-            if (getInternalCellPosFromID(wm.GetCellIDFromCoordinates(abs_x, abs_y, abs_z)) == null)
+            //Check if target coordinates are within loaded cells
+            if (isCoordinateLoaded(abs_x, abs_y, abs_z) == null)
                 return false;
 
+            //Check wheter Tile at target location exists (this should never be reached but
+            // intercepted by the check above)
             Tile tar = getTileFromCells(abs_x, abs_y, abs_z);
-            //Tile tar = getTileFromCells(abs_x, abs_y, DropObject(abs_x, abs_y, abs_z));
             if (tar == null)
             {
-                Debug.WriteLine("Movement denied: Tile nonexistant.");
-                return false;
+                if (DEBUG_OUTPUT)
+                    _out.SendDebugMessage("Movement denied: Tile nonexistant.");
+                throw new Exception("FATAL ERROR while trying to check movement: Tile at " + abs_x + "," + abs_y + "," + abs_z + " does not exist.");
             }
 
 
             //If target Tile blocks movement, deny movement
             if (tar.BlocksMovement)
             {
-                Debug.WriteLine("Movement denied: Tile blocks movement.");
+                if (DEBUG_OUTPUT)
+                    _out.SendDebugMessage("Movement denied: Tile blocks movement.");
                 return false;
             }
 
@@ -1042,22 +1121,28 @@ namespace ShootyShootyRL.Mapping
             {
                 if (kv.Value.X == abs_x && kv.Value.Y == abs_y && kv.Value.Z == abs_z)
                 {
-                    Debug.WriteLine("Movement denied: Tile occupied.");
+                    if (DEBUG_OUTPUT)
+                        _out.SendDebugMessage("Movement denied: Tile occupied.");
                     return false;
                 }
 
             }
 
+            //Okay to go, sir!
             return true;
         }
 
-        public bool IsMovementPossibleDrop(int abs_x, int abs_y, int abs_z)
+        /// <summary>
+        /// This function checks wheter a creature can legally move to the given position if it were dropped from the given curr_z to the ground beneath.
+        /// </summary>
+        public bool IsMovementPossibleDrop(int abs_x, int abs_y, int curr_z)
         {
-            return IsMovementPossible(abs_x, abs_y, DropObject(abs_x, abs_y, abs_z));
+            return IsMovementPossible(abs_x, abs_y, DropObject(abs_x, abs_y, curr_z));
         }
 
         public void Tick()
         {
+            //Tick all loaded creatures
             foreach (Creature c in CreatureList.Values)
             {
                 if (c.GetType() == typeof(AICreature))
@@ -1067,6 +1152,7 @@ namespace ShootyShootyRL.Mapping
                 }
             }
 
+            //Tick all loaded items
             foreach (Item i in ItemList.Values)
             {
                 i.Tick();
@@ -1075,10 +1161,15 @@ namespace ShootyShootyRL.Mapping
 
         public bool Render(TCODConsole con, int con_x, int con_y, int width, int height) 
         {
-            //Method will draw to rectangle from origin con_x, con_y on the console by taking data from the cells.
-            //Viewport is always centered on player, except on the border of the worldmap itself.
+            //This method is fairly convoluted because of all the intricacies of rendering ALL THE THINGS properly.
+            //It could really use a makeover, but I'm not in the "OMGWTFBBQ MAJOR REWRITE UP IN THIS BIATCH" phase
+            // and I'm afraid of breaking things.
 
-            //TODO: Correct z-handling
+            #region "Viewport setup"
+            //In hnjah, the "viewport" is set up. The viewport is what the camera is in 3D games. 
+            //It determines what needs to be rendered (everything not in the viewport on any of the three
+            //axes is "culled", i.e. not rendered).
+            //The viewport is ALWAYS centered on the player.
 
             int top; //Y
             int left; //X
@@ -1096,13 +1187,13 @@ namespace ShootyShootyRL.Mapping
 
             if (top < 0)
             {
-                bottom -= top; //Bottom - Top (which is negative): new Bottom (10-(-5) = 15)
+                bottom -= top; //Bottom - Top (which is negative): ex.: new Bottom (10-(-5) = 15)
                 top = 0;
             }
 
             if (bottom > WorldMap.GLOBAL_HEIGHT)
             {
-                top -= (bottom - WorldMap.GLOBAL_HEIGHT); //bottom = 15, Globalheight = 10, Top = 5; => Top = 5 - (15-10) = 0
+                top -= (bottom - WorldMap.GLOBAL_HEIGHT); //ex.: bottom = 15, Globalheight = 10, Top = 5; => Top = 5 - (15-10) = 0
                 bottom = WorldMap.GLOBAL_HEIGHT;
             }
 
@@ -1117,23 +1208,28 @@ namespace ShootyShootyRL.Mapping
                 left -= (right - WorldMap.GLOBAL_WIDTH);
                 right = WorldMap.GLOBAL_WIDTH;
             }
+            #endregion
 
-            //Render the map
+            #region "Map rendering"
+
             int abs_x, abs_y, abs_z;
+            int rel_x, rel_y, rel_z;
             Tile t;
             
             int curr_z = Player.Z;
-            int z_view_dist = Map.VIEW_DISTANCE_TILES_Z;
+            int z_view_dist = Map.VIEW_DISTANCE_TILES_Z;    //"Z viewing distance" is the maximum elevation change that
+                                                            //is properly rendered out.
             String displ_string = " ";
 
+            //Debug vars:
             Stopwatch sw = new Stopwatch();
-
             int debug_prints = 0;
             
-            //world.GetTileFromID(tileMap[abs_x - X, abs_y - Y, abs_z - Z])
-            byte[, ,] tilearr = new byte[right - left +1, bottom - top +1, (curr_z + z_view_dist) - (curr_z - z_view_dist) +1];
-
             sw.Start();
+            //AND THEY'RE OFF!
+
+            //Buffer all tiles in the viewport into a three dimensional byte array
+            byte[, ,] tilearr = new byte[right - left + 1, bottom - top + 1, (curr_z + z_view_dist) - (curr_z - z_view_dist) + 1];
             for (abs_x = left; abs_x < right; abs_x++)
             {
                 for (abs_y = top; abs_y < bottom; abs_y++)
@@ -1145,52 +1241,60 @@ namespace ShootyShootyRL.Mapping
                 }
             }
 
-            int rel_x, rel_y, rel_z;
-            bool above_clear = false ;
+            //Now go through all the tiles...
             for (abs_x = left; abs_x < right; abs_x++)
             {
                 for (abs_y = top; abs_y < bottom; abs_y++)
                 {
                     for (abs_z = curr_z - z_view_dist; abs_z < curr_z + z_view_dist; abs_z++)
                     {
+                        //...determine their relative coordinates (relative to the upper left
+                        // corner of the viewport *and the tile byte array*, that is)
                         rel_x = abs_x - left;
                         rel_y = abs_y - top;
                         rel_z = abs_z - (curr_z - z_view_dist);
-                        //If current Tile is Air, skip ahead
+
+                        //If current Tile is Air, skip ahead, because no hot rendering action is needed
                         if (tilearr[rel_x, rel_y, rel_z] == 0) //Air Tile
                             continue;
-                        //Check if Tile above current is Air
+
+                        //If the current Tile is NOT Air, check if Tile ABOVE current is Air
+                        // (Only then is it a candidate for rendering!)
                         if (tilearr[rel_x, rel_y, rel_z + 1] == 0)
                         {
+                            //Retrieve the actual tile data
                             t = wm.GetTileFromID(tilearr[rel_x, rel_y, rel_z]);
 
-                            //If yes, draw
+                            //Prepare for render...
                             con.setBackgroundFlag(TCODBackgroundFlag.Default);
                             con.setForegroundColor(t.ForeColor);
                             displ_string = t.DisplayString;
 
-                            //Is iteration z-level pointing at the tile BELOW the player level (curr_z)?
-                            //Yes:
-
+                            //...but wait!
+                            //Is iteration z-level pointing at a tile ONE BELOW the player level (curr_z)?
+                            
                             if (abs_z == curr_z - 1)
                             {
+                                //Yes! The tiles should be rendered normally!
                                 if (t.BackColor != null)
                                 {
                                     con.setBackgroundColor(t.BackColor);
                                     con.setBackgroundFlag(TCODBackgroundFlag.Set);
                                 }
+                                //DO IT!
                                 debug_prints++;
                                 con.print(con_x + (abs_x - left), con_y + (abs_y - top), displ_string);
                                 break;
                             }
 
-                            //No: Different z-level, set colors appropriately
+                            //No... Different z-level, set colors appropriately.
                             con.setBackgroundFlag(TCODBackgroundFlag.Set);
                             
                             if (abs_z < curr_z - 1)
                             {
-                                //displ_string = ".";
-
+                                //Tile is BELOW (one below) player level? Darken that biatch up!
+                                //NOTE: Darkening/Interpolating with black is gradual, with a tile z_view_dist tiles below player level 
+                                //being rendered completely black and a tile on player level completely normal.
                                 con.setForegroundColor(TCODColor.Interpolate(t.ForeColor, TCODColor.black, Math.Abs((abs_z-(curr_z-1))*(1.0f/z_view_dist))));
                                 if (t.BackColor != null)
                                 {
@@ -1198,13 +1302,15 @@ namespace ShootyShootyRL.Mapping
                                 }
                                 else
                                 {
+                                    //If tile doesn't have a background, fall back to black
                                     con.setBackgroundColor(TCODColor.black);
                                 }
                             }
                             if (abs_z > curr_z - 1)
                             {
-                                //displ_str = "#";
-
+                                //Tile is ABOVE (one below) player level? Brighten that biatch up!
+                                //NOTE: Brightening/Interpolating with white is gradual, with a tile z_view_dist tiles below player level 
+                                //being rendered completely white and a tile on player level completely normal.
                                 con.setForegroundColor(TCODColor.Interpolate(t.ForeColor, TCODColor.white, Math.Abs((abs_z - (curr_z - 1)) * (1.0f / z_view_dist))));
                                 if (t.BackColor != null)
                                 {
@@ -1212,12 +1318,18 @@ namespace ShootyShootyRL.Mapping
                                 }
                                 else
                                 {
+                                    //If tile doesn't have a background, fall back to black
                                     con.setBackgroundColor(TCODColor.black);
                                 }
                             }
 
-                            //Check surrounding tiles, make ramp if appropriate
-                            // Ramp leading down a Z-Level
+                            //Check surrounding tiles, make a ramp if appropriate!
+                            //NOTE: A ramp is rendered instead of the normal foreground char for
+                            // this particular tile if one or more tiles neighboring it on the x- or y-
+                            // axis are on the player level. (IMPORTANT: This doesn't actually change the nature
+                            // of the tile, just it's display!)
+
+                            // Ramp leading DOWN a Z-Level
                             if (abs_z == curr_z - 2)
                             {
                                 if ((rel_x > 0 && rel_y > 0) && (rel_x < (right - left - 1) && rel_y < (bottom - top - 1)))
@@ -1233,7 +1345,7 @@ namespace ShootyShootyRL.Mapping
                                 }
                             }
 
-                            // Ramp leading up a Z-Level
+                            // Ramp leading UP a Z-Level
                             if (abs_z == curr_z)
                             {
                                 if ((rel_x > 0 && rel_y > 0) && (rel_x < (right - left - 1) && rel_y < (bottom - top - 1)))
@@ -1249,6 +1361,7 @@ namespace ShootyShootyRL.Mapping
                                 }
                             }
 
+                            //Print that tile for reals!
                             debug_prints++;
                             con.print(con_x + (abs_x - left), con_y + (abs_y - top), displ_string);
                             break;
@@ -1257,9 +1370,13 @@ namespace ShootyShootyRL.Mapping
                 }
             }
             sw.Stop();
+            #endregion
 
-            //_out.SendMessage("Drew frame, printed " + debug_prints + " tiles, took " + sw.ElapsedMilliseconds + "ms.");
+            //Report the time it took to render one frame! (but only if in Debug mode!)
+            if (DEBUG_OUTPUT)
+                _out.SendMessage("Drew frame, printed " + debug_prints + " tiles, took " + sw.ElapsedMilliseconds + "ms.");
 
+            #region "Object rendering"
             //Render the player
             con.setBackgroundFlag(TCODBackgroundFlag.Default);
             con.setForegroundColor(Player.ForeColor);
@@ -1267,6 +1384,8 @@ namespace ShootyShootyRL.Mapping
             con.print(con_x + (Player.X - left), con_y + (Player.Y - top), Player.DisplayString);
 
             //Render the creatures
+            //NOTE/TODO: Creatures are only visible in a certain range of height differences. Right now
+            // it's hardcoded, but it will probably be dynamic with the addition of a 3D raycasting algorithm!
             foreach (Creature c in CreatureList.Values)
             {
                 if (c.Z >= curr_z - Map.VIEW_DISTANCE_CREATURES_DOWN_Z && c.Z <= curr_z + Map.VIEW_DISTANCE_CREATURES_UP_Z)
@@ -1287,6 +1406,7 @@ namespace ShootyShootyRL.Mapping
                 }
             }
 
+            //Render the items
             foreach (Item i in ItemList.Values)
             {
                 if (i.Z >= curr_z - Map.VIEW_DISTANCE_CREATURES_DOWN_Z && i.Z <= curr_z + Map.VIEW_DISTANCE_CREATURES_UP_Z)
@@ -1306,7 +1426,9 @@ namespace ShootyShootyRL.Mapping
                     con.print(con_x + (i.X - left), con_y + (i.Y - top), i.DisplayString);
                 }
             }
+            #endregion
 
+            //DONE!
             return true;
         }
 
