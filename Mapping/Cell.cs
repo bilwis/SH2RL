@@ -6,15 +6,27 @@ using System.IO;
 
 namespace ShootyShootyRL.Mapping
 {
+    /// <summary>
+    /// This object represents a certain part of a map. They can be loaded and saved seperately.
+    /// </summary>
     public class Cell
     {
+        byte[, ,] tileMap;  //This is the three-dimensional byte array holding the ID of the tile
+                            //at that location.
 
-        byte[, ,] tileMap;
+        public int X, Y, Z; //These the absolute coordinates of the upper left corner of the cell.
+        public int CellID;  //This is the ID of the Cell in the WorldMap/Map context
 
-        public int X, Y, Z; //These the absolute coordinates of the upper left corner of the cell
-        public int CellID;
-        WorldMap world;
+        WorldMap world;     //This is a reference to the WorldMap this cell is a part of
 
+        /// <summary>
+        /// Creates a new cell.
+        /// </summary>
+        /// <param name="X">The X coordinate of the upper left corner of the cell.</param>
+        /// <param name="Y">The Y coordinate of the upper left corner of the cell.</param>
+        /// <param name="Z">The Z coordinate of the upper left corner of the cell.</param>
+        /// <param name="cellID">The (unique) cell id in the WorldMap context.</param>
+        /// <param name="world">The WorldMap this cell is a part of.</param>
         public Cell(int X, int Y, int Z, int cellID, WorldMap world)
         {
             this.X = X;
@@ -24,26 +36,56 @@ namespace ShootyShootyRL.Mapping
             this.CellID = cellID;
         }
 
+        /// <summary>
+        /// Returns the tile at the given location, or null if location is not inside this cell.
+        /// </summary>
+        /// <returns>The Tile object holding the tile's properties, or null.</returns>
         public Tile GetTile(int abs_x, int abs_y, int abs_z)
         {
-            return world.GetTileFromID(tileMap[abs_x - X, abs_y - Y, abs_z - Z]);
+            try
+            {
+                Tile t = world.GetTileFromID(tileMap[abs_x - X, abs_y - Y, abs_z - Z]);
+                return t;
+            }
+            catch
+            {
+                return null;
+            }
         }
 
+        /// <summary>
+        /// Returns the ID of the tile at the given location.
+        /// </summary>
+        /// <returns>A byte representing a tile ID.</returns>
         public byte GetTileID(int abs_x, int abs_y, int abs_z)
         {
+            if (abs_x < X || abs_x > X + WorldMap.CELL_WIDTH ||
+                abs_y < Y || abs_y > Y + WorldMap.CELL_HEIGHT ||
+                abs_z < Z || abs_z > Z + WorldMap.CELL_DEPTH)
+                throw new Exception("Error while trying to retrieve Tile ID from Cell: The given coordinates are not within the called cell object.");
+
             return tileMap[abs_x - X, abs_y - Y, abs_z - Z];
         }
 
-        
+        /// <summary>
+        /// Loads the tile ID's for every tile within the cell from the map file specified in the associated WorldMap object.
+        /// </summary>
         public void Load()
         {
+            //The map file contains the tile data in the following format: Every tile is represented
+            //by a single byte. The map file consists of a continuous stream of bytes.
+            //The first (GLOBAL_WIDTH*GLOBAL_DEPTH) bytes contain all data for X=0.
+            //Of those bytes, the first GLOBAL_DEPTH bytes contain all data for X=0, Y=0.
+            //Of those bytes, the first byte contains the data for X=0, Y=0, Z=0.
+
+            //TODO: Implement a header for the map file.
+
             FileStream fstream = new FileStream(world.MapFile, FileMode.Open);
             tileMap = new byte[WorldMap.CELL_WIDTH, WorldMap.CELL_HEIGHT, WorldMap.CELL_DEPTH];
 
             byte[] temparr = new byte[WorldMap.CELL_HEIGHT*WorldMap.GLOBAL_DEPTH];
 
             int offset = 0;
-            
 
             for (int x = 0; x < WorldMap.CELL_WIDTH; x++)
             {
@@ -62,42 +104,13 @@ namespace ShootyShootyRL.Mapping
             fstream.Close();
         }
 
-        /*
-        public void Load()
-        {
-            
-            //TODO: Reorganize! Right now: entire file is loaded into memory every time, but one could improve by only loading the "relevant" X "columns" in data,
-            // and perhaps even only the important Y's (much more mathemagic needed, though)
-
-            FileStream fstream = new FileStream(world.MapFile,FileMode.Open);
-            tileMap = new byte[WorldMap.CELL_WIDTH, WorldMap.CELL_HEIGHT, WorldMap.CELL_DEPTH];
-
-            //fstream.Seek(((X) * (WorldMap.GLOBAL_HEIGHT * WorldMap.GLOBAL_DEPTH)), SeekOrigin.Begin); //Jump to relevant data
-
-            byte[] temparr = new byte[WorldMap.GLOBAL_WIDTH * WorldMap.GLOBAL_HEIGHT * WorldMap.GLOBAL_DEPTH];
-            fstream.Read(temparr, 0, WorldMap.GLOBAL_WIDTH * WorldMap.GLOBAL_HEIGHT * WorldMap.GLOBAL_DEPTH);
-            fstream.Close();
-
-            for (int x = 0; x < WorldMap.CELL_WIDTH; x++)
-            {
-                for (int y = 0; y < WorldMap.CELL_HEIGHT; y++)
-                {
-                    for (int z = 0; z < WorldMap.CELL_DEPTH; z++)
-                    {
-                        tileMap[x, y, z] = temparr[((X + x) * (WorldMap.GLOBAL_HEIGHT * WorldMap.GLOBAL_DEPTH)) + (Y + y) * WorldMap.GLOBAL_DEPTH + (Z + z)];
-                    }
-                }
-            }
-             
-        }*/
-
+        /// <summary>
+        /// Unloads the cells tile array and calls the garbage collector.
+        /// </summary>
         public void Unload()
         {
-            //TODO: Handle Saving!
             tileMap = new byte[0,0,0];
-
             GC.Collect();
-            
         }
     }
 }

@@ -12,6 +12,9 @@ using ShootyShootyRL.Objects;
 
 namespace ShootyShootyRL.Mapping
 {
+    /// <summary>
+    /// This object represents and works with the map as it resides in memory. It consists of 3x3x3 cells and consitutes a chunk of the world map.
+    /// </summary>
     public class Map
     {
         private static bool DEBUG_OUTPUT = true;
@@ -23,8 +26,6 @@ namespace ShootyShootyRL.Mapping
         public Dictionary<String, double> CreaturesByDistance;
         public Dictionary<String, Item> ItemList;
 
-        public static int VIEWPORT_WIDTH = 10;
-        public static int VIEWPORT_HEIGHT = 10;
         public static int VIEW_DISTANCE_TILES_Z = 10;
         public static int VIEW_DISTANCE_CREATURES_DOWN_Z = 3;
         public static int VIEW_DISTANCE_CREATURES_UP_Z = 1;
@@ -35,7 +36,6 @@ namespace ShootyShootyRL.Mapping
         private FactionManager facman; 
         private SQLiteConnection dbconn;
 
-        private byte[] test;
 
         public Map(Creature player, WorldMap wm, MessageHandler _out, FactionManager facman, SQLiteConnection dbconn)
         {
@@ -44,26 +44,22 @@ namespace ShootyShootyRL.Mapping
             this._out = _out;
             this.dbconn = dbconn;
 
-
             CreatureList = new Dictionary<string, Creature>();
             CreaturesByDistance = new Dictionary<string, double>();
             ItemList = new Dictionary<string, Item>();
             this.facman = facman;
 
             cells = new Cell[3, 3, 3];
-            centerAndLoad();
-            Console.WriteLine(getTileFromCells(Player.X, Player.Y, Player.Z).Description);
-
-            for (int i = 0; i < 10; i++)
-            {
-                Console.WriteLine(i + ": " + getTileFromCells(Player.X, Player.Y, i).Name);
-            }
-
+            centerAndLoad(player);
         }
 
-        private void centerAndLoad()
+        /// <summary>
+        /// This function assigns the central cell to the cell in which the player currently resides and loads all surrounding
+        /// cells into memory.
+        /// </summary>
+        private void centerAndLoad(Creature player)
         {
-            cells[1, 1, 1] = wm.GetCellFromCoordinates(Player.X, Player.Y, Player.Z);
+            cells[1, 1, 1] = wm.GetCellFromCoordinates(player.X, player.Y, player.Z);
             cells[1, 1, 1].Load();
             currentCellId = cells[1, 1, 1].CellID;
 
@@ -87,11 +83,8 @@ namespace ShootyShootyRL.Mapping
         /// This function handles the map side of player movement. It will check on the viability
         /// of the move and, if necessary, load new Cells and dispose the old ones.
         /// </summary>
-        /// <param name="abs_x"></param>
-        /// <param name="abs_y"></param>
-        /// <param name="abs_z"></param>
         /// <returns>true if the movement is possible, false otherwise</returns>
-        public bool MovePlayer(int abs_x, int abs_y, int abs_z)
+        public bool CheckPlayerMovement(int abs_x, int abs_y, int abs_z)
         {
             int cell_x = -1;
             int cell_y = -1;
@@ -99,19 +92,22 @@ namespace ShootyShootyRL.Mapping
             int[] cell_coords = new int[3];
             int relCellID;
 
+            //Get the Cell ID of the destination cell.
             relCellID = wm.GetCellIDFromCoordinates(abs_x, abs_y, abs_z);
 
-            //Can't fly!
+            //Check for movement blocking tiles or other creatures-
+            // also simulate the player dropping from the destination coordinates
+            // to ensure the cell in which he would actually end up in (seeing as
+            // he can't fly) is checked.
             if (!IsMovementPossibleDrop(abs_x, abs_y, abs_z))
-            {
-                Debug.WriteLine("NAY!");
                 return false;
-            }
 
             //Not the same cell anymore? Better load the new ones!
             if (relCellID != currentCellId)
             {
-                //Get coordinates of now player-holding cell relative to previous
+                //Get coordinates of the now player-holding cell relative to the previous.
+                //NOTE: This also limits the movement. If the player is to be "teleported" to a
+                //location more than one cell's distance away, a different function must be used (TODO).
                 cell_coords = getInternalCellPosFromID(relCellID);
                 if (cell_coords == null)
                     throw new Exception("Error while trying to move player: New cell was not found in Map Cell array!");
@@ -120,6 +116,11 @@ namespace ShootyShootyRL.Mapping
                 cell_y = cell_coords[1];
                 cell_z = cell_coords[2];
 
+                //Try and shift the cells (including loading the new ones)
+                //NOTE: This function will return false if the player tries to move into the cells on the 
+                //border of the world map. That is because it can't load all surrounding cells on the border 
+                //(seeing as some don't exist). Handling those special cases where the number of loaded cells
+                //is less than 12 seems more work than it's worth. 
                 if (loadNewCells(cell_x, cell_y, cell_z) == false)
                     return false;
                 
@@ -127,6 +128,7 @@ namespace ShootyShootyRL.Mapping
                 {
                     _out.SendMessage("Entered cell #" + relCellID + " relative to old cell: x:" + cell_x + " y: " + cell_y + ".");
                 }
+
                 currentCellId = relCellID;
             }
             return true;
@@ -350,7 +352,7 @@ namespace ShootyShootyRL.Mapping
         }
 
         /// <summary>
-        /// This function deserializes an item from the item database.
+        /// This function deserializes (loads) an item from the item database.
         /// </summary>
         /// <param name="guid">The guid of the item to deserialize.</param>
         public bool LoadItem(string guid)
@@ -358,7 +360,7 @@ namespace ShootyShootyRL.Mapping
             //The item's data is retrieved from the DB using the GUID.
             //The "data" column is an ASCII-Encoded byte array which is then
             //converted into a string which is then converted into an "hex-encoded"
-            //or proper byte-array. The resulting byte-array is then written into
+            //or proper byte-array (Oh god why?). The resulting byte-array is then written into
             //a MemoryStream from which the Item is deserialized.
 
             byte[] data;
@@ -368,47 +370,54 @@ namespace ShootyShootyRL.Mapping
             BinaryFormatter deserializer = new BinaryFormatter();
 
             SQLiteDataReader reader;
+            //Check if an item with the given GUID is in the data base. If not, exit.
             if (!checkIsInDatabase(Util.DBLookupType.Item, guid, out reader))
                 return false;
             
-            String str = Util.ByteArrayToString((byte[])reader[1]);
-            data = new byte[str.Length / 2];
+            //DB Results have the following format:
+            // reader[0] = GUID
+            // reader[1] = the data array
+            // reader[2] = a byte array holding an Int32 object holding three bytes encoding the color of the object
 
-            for (int n = 0; n < str.Length/2; n++)
-            {
-                data[n] = byte.Parse(str.Substring(n*2, 2), System.Globalization.NumberStyles.HexNumber);
-            }
+            //Parse this pesky string of ASCII encoded bytes into an actual proper hex-encoded byte array.
+            data = Util.ConvertDBByteArray((byte[])reader[1]);
 
             color = Convert.ToInt32(Util.ByteArrayToString((byte[])reader[2]));
             
+            //Write all the data from the freshly parsed byte array into the MemoryStream
             fstream.Write(data, 0, data.Length);
+
+            //Reset the MemoryStream
             fstream.Seek(0, SeekOrigin.Begin);
 
+            //Extract (deserialize) the delicious item from the MemoryStream
             Item i = (Item)deserializer.Deserialize(fstream);
+
+            //And initialize the new and shining item
             i.Init(new TCODColor(color >> 16, color >> 8 & 0xFF, color & 0xFF), _out);
 
+            //Add the initialized item to the maps dictionary of items
             AddItem(i);
 
+            //Cleanup
             reader.Close();
             reader.Dispose();
             fstream.Close();
 
+            //Done!
             return true;
         }
 
         /// <summary>
-        /// This function serializes an item to the item database.
+        /// This function serializes (saves) an item to the item database.
         /// </summary>
         /// <param name="guid">The guid of the item to serialize.</param>
         public void UnloadItem(string guid)
         {
             //The item is retrieved using the given guid, then serialized to the 
-            //MemoryStream which is then written into the database. For the DB
-            //the MemoryStream (which holds a byte array) is converted into a string
-            //(after the pattern: [1A, 20, 00, FF] -> 1A2000FF)
-
-            Item i;
-
+            //MemoryStream which is then converted into a string which is then 
+            //written into the database. For the DB the MemoryStream (which holds a byte array) 
+            //is converted into a string (after the pattern: [1A, 20, 00, FF] -> 1A2000FF)
             byte[] arr;
             string data;
             int color;
@@ -418,44 +427,70 @@ namespace ShootyShootyRL.Mapping
             BinaryFormatter serializer = new BinaryFormatter();
             SQLiteCommand command = new SQLiteCommand(dbconn);
 
-            //Check if item already is in DB
+            //Check if item already is in DB, if so set to update instead of insert
             if (checkIsInDatabase(Util.DBLookupType.Item, guid))
                 update = true;
 
+            //Begin a new SQLiteTransaction 
+            //NOTE: A SQL Transaction stores several SQL commands
+            //before commiting them to the database. This can save a
+            //lot of time.
             SQLiteTransaction tr = dbconn.BeginTransaction();
-            //command = new SQLiteCommand("", dbconn, tr);
             command.Transaction = tr;
 
-            i = ItemList[guid];
+            Item i = ItemList[guid];
 
+            //Call the save function of the item/object which "uninitializes" it.
             i.Save();
 
+            //Do the actual serialization into the MemoryStream
             serializer.Serialize(fstream, i);
 
             arr = new byte[fstream.Length];
+
+            //Encode the item's ForeColor into a single integer
+            //NOTE: The "technique" used is called bit shift.
             color = i.ForeColor.Red << 16 | i.ForeColor.Green << 8 | i.ForeColor.Blue;
+
+            //Reset and read the MemoryStream into the byte array.
             fstream.Seek(0, SeekOrigin.Begin);
             fstream.Read(arr, 0, (int)fstream.Length);
 
+            //Convert the hex-encoded byte array extracted from the serialized MemoryStream
+            //into an ascii-encoded string (and remove all dashes).
             data = BitConverter.ToString(arr).Replace("-", string.Empty);
 
+            //Prepare the actual SQL command (UPDATE if guid already exists, INSERT if not)
+            //NOTE: Please refer to SQL documentation for detailed information.
             if (!update)
                 command.CommandText = "INSERT INTO items (guid, data, color) VALUES ('" + guid + "', '" + data + "', " + color + ")";
             if (update)
                 command.CommandText = "UPDATE items SET data='" + data + "', color=" + color + " WHERE guid='" + guid + "'";
 
+            //Execute and commit SQLite command and transaction.
             command.ExecuteNonQuery();
             tr.Commit();
-                
+            
+            //Remove the saved item from the maps ItemList.
             ItemList.Remove(guid);
 
+            //Cleanup
             command.Dispose();
             tr.Dispose();
             fstream.Close();
         }
 
+        /// <summary>
+        /// This function deserializes (loads) a creature with an attached AI from the creature database.
+        /// </summary>
+        /// <param name="guid">The guid of the creature to deserialize.</param>
         public bool LoadAICreature(string guid)
         {
+            //The creatures's data is retrieved from the DB using the GUID.
+            //The "data" column is an ASCII-Encoded byte array which is then
+            //converted into a string which is then converted into an "hex-encoded"
+            //or proper byte-array (Oh god why?). The resulting byte-array is then written into
+            //a MemoryStream from which the Item is deserialized.
             AICreature c;
             Faction _fac;
             AI _ai;
@@ -464,105 +499,124 @@ namespace ShootyShootyRL.Mapping
             string fac_id, ai_id;
             int color;
 
-            bool fac_deser = false;
+            bool faction_deserialized = false;
 
             MemoryStream fstream = new MemoryStream();
             BinaryFormatter deserializer = new BinaryFormatter();
             SQLiteDataReader reader;
 
-            //****DESERIALIZE AI CREATURE****//
+            //DESERIALIZE AI CREATURE
+            //Check if in database
             if (!checkIsInDatabase(Util.DBLookupType.AICreature, guid, out reader))
                 throw new Exception("Error while trying to load AICreature: No AICreature entry with guid " + guid + " found.");
 
-            //Parse ASCII-Encoded byte array to Hex-Encoded byte array
-            String str = Util.ByteArrayToString((byte[])reader[1]);
-            data = new byte[str.Length / 2];
+            //DB Results have the following format:
+            // reader[0] = GUID
+            // reader[1] = the data array
+            // reader[2] = the GUID of the attached faction
+            // reader[3] = the GUID of the attached AI
+            // reader[4] = a byte array holding an Int32 object holding three bytes encoding the color of the object
 
-            for (int n = 0; n < str.Length / 2; n++)
-            {
-                data[n] = byte.Parse(str.Substring(n * 2, 2), System.Globalization.NumberStyles.HexNumber);
-            }
+            //Parse ASCII-Encoded byte array to Hex-Encoded byte array
+            data = Util.ConvertDBByteArray((byte[])reader[1]);
 
             fac_id = Util.ByteArrayToString((byte[])reader[2]);
             ai_id = Util.ByteArrayToString((byte[])reader[3]);
             color = Convert.ToInt32(Util.ByteArrayToString((byte[])reader[4]));
 
+            //Write the converted byte array into the MemoryStream (and reset it to origin)
             fstream.Write(data, 0, data.Length);
             fstream.Seek(0, SeekOrigin.Begin);
 
+            //Deserialize the creature object itself
             c = (AICreature)deserializer.Deserialize(fstream);
 
-            //****DESERIALIZE OR LOAD FACTION****//
-            _fac = facman.GetFaction(fac_id);
+            //DESERIALIZE OR LOAD FACTION
+            //If the faction with the GUID attached to the deserialized creature
+            //is already registered in the maps faction manager, then there is no need to load it again.
+            _fac = facman.GetFaction(fac_id); 
             if (_fac == null)
             {
+                //Clear the SQLite Reader
                 reader.Dispose();
+
+                //Check if in database
                 if (!checkIsInDatabase(Util.DBLookupType.Faction, fac_id, out reader))
                     throw new Exception("Error while trying to load AICreature: No Faction entry with guid " + fac_id + " found."); ;
 
+                //DB Results have the following format:
+                // reader[0] = GUID
+                // reader[1] = the data array
+
                 //Parse ASCII-Encoded byte array to Hex-Encoded byte array
-                str = Util.ByteArrayToString((byte[])reader[1]);
-                data = new byte[str.Length / 2];
+                data = Util.ConvertDBByteArray((byte[])reader[1]);
 
-                for (int n = 0; n < str.Length / 2; n++)
-                {
-                    data[n] = byte.Parse(str.Substring(n * 2, 2), System.Globalization.NumberStyles.HexNumber);
-                }
-
+                //Clear (and reset) the MemoryStream
                 fstream.SetLength(0);
                 fstream.Seek(0, SeekOrigin.Begin);
 
+                //Write the converted byte array into the MemoryStream (and reset it to origin)
                 fstream.Write(data, 0, data.Length);
                 fstream.Seek(0, SeekOrigin.Begin);
 
+                //Deserialize the faction object itself
                 _fac = (Faction)deserializer.Deserialize(fstream);
-                fac_deser = true;
+                faction_deserialized = true;
             }
 
-            //****DESERIALIZE AI****//
+            //DESERIALIZE AI
             if (!checkIsInDatabase(Util.DBLookupType.AI, ai_id, out reader))
-                throw new Exception("Error while trying to load AICreature: No AI entry with guid " + ai_id + " found."); ;
+                throw new Exception("Error while trying to load AICreature: No AI entry with guid " + ai_id + " found."); 
+
+            //DB Results have the following format:
+            // reader[0] = GUID
+            // reader[1] = the data array
 
             //Parse ASCII-Encoded byte array to Hex-Encoded byte array
-            str = Util.ByteArrayToString((byte[])reader[1]);
-            data = new byte[str.Length / 2];
+            data = Util.ConvertDBByteArray((byte[])reader[1]);
 
-            for (int n = 0; n < str.Length / 2; n++)
-            {
-                data[n] = byte.Parse(str.Substring(n * 2, 2), System.Globalization.NumberStyles.HexNumber);
-            }
-
+            //Clear (and reset) the MemoryStream
             fstream.SetLength(0);
             fstream.Seek(0, SeekOrigin.Begin);
 
+            //Write the converted byte array into the MemoryStream (and reset it to origin)
             fstream.Write(data, 0, data.Length);
             fstream.Seek(0, SeekOrigin.Begin);
 
+            //Deserialize the ai object itself
             _ai = (AI)deserializer.Deserialize(fstream);
 
-            //****INITIALIZE OBJECTS****//
-            if (fac_deser)
+            //INITIALIZE OBJECTS
+            //If the faction was loaded from DB, initialize it to the faction manager
+            if (faction_deserialized)
                 _fac.Init(facman);
 
+            //Initialize the AICreature
             c.Init(new TCODColor(color >> 16, color >> 8 & 0xFF, color & 0xFF), _out, _fac, new Objects.Action(ActionType.Idle, null, c, 0.0d), _ai, this);
 
+            //Add the newly initialized AICreature to the map creature dictionaries
             AddCreature(c);
             
-            //****CLEANUP****//
+            //CLEANUP
             reader.Dispose();
             reader.Close();
 
             fstream.Close();
 
+            //Done!
             return true;
         }
 
         /// <summary>
-        /// This function serializes a creature to the creature database.
+        /// This function serializes (saves) a creature to the creature database.
         /// </summary>
         /// <param name="guid">The guid of the creature to serialize.</param>
         public bool UnloadAICreature(string guid)
         {
+            //The creature is retrieved using the given guid, then serialized to the 
+            //MemoryStream which is then converted into a string which is then 
+            //written into the database. For the DB the MemoryStream (which holds a byte array) 
+            //is converted into a string (after the pattern: [1A, 20, 00, FF] -> 1A2000FF)
             AICreature c;
 
             byte[] arr;
@@ -575,7 +629,7 @@ namespace ShootyShootyRL.Mapping
             BinaryFormatter serializer = new BinaryFormatter();
             SQLiteCommand command = new SQLiteCommand(dbconn);
 
-            //****SERIALIZE AICREATURE****//
+            //SERIALIZE AICREATURE
 
             //Check if creature actually is an AICreature
             if (CreatureList[guid].GetType() != typeof(AICreature))
@@ -589,20 +643,25 @@ namespace ShootyShootyRL.Mapping
             SQLiteTransaction tr = dbconn.BeginTransaction();
             command.Transaction = tr;
 
-            //Serialize the creature
+            //Retrieve the AICreature with the given GUID and call it's save function
             c = (AICreature)CreatureList[guid];
-
             c.Save();
 
+            //Serialize the creature into the MemoryStream
             serializer.Serialize(fstream, c);
 
             arr = new byte[fstream.Length];
 
+            //Reset and read the stream into a byte array
             fstream.Seek(0, SeekOrigin.Begin);
             fstream.Read(arr, 0, (int)fstream.Length);
 
+            //Convert the hex-encoded byte array extracted from the serialized MemoryStream
+            //into an ascii-encoded string (and remove all dashes).
             data = BitConverter.ToString(arr).Replace("-", string.Empty);
 
+            //Encode the item's ForeColor into a single integer
+            //NOTE: The "technique" used is called bit shift.
             color = c.ForeColor.Red << 16 | c.ForeColor.Green << 8 | c.ForeColor.Blue;
 
             //Prepare and execute query to insert/update creature
@@ -611,16 +670,20 @@ namespace ShootyShootyRL.Mapping
             if (update)
                 command.CommandText = "UPDATE ai_creatures SET data='" + data + "', faction_id='" +  c.Faction.GUID + "', ai_id='" + c.AI.GUID + "', color=" + color + " WHERE guid='" + guid + "'";
             
+            //Execute the command
             command.ExecuteNonQuery();
 
-            //****SERIALIZE AI****//
+            //SERIALIZE AI
+            //Check if the AI is already in DB
             update = false;
             if (checkIsInDatabase(Util.DBLookupType.AI, c.AI.GUID))
                 update = true;
 
+            //Retrieve and save the AI associated with the AICreature
             AI _ai = c.AI;
             _ai.Save();
 
+            //blah blah see above
             fstream.SetLength(0);
             fstream.Seek(0, SeekOrigin.Begin);
 
@@ -641,7 +704,8 @@ namespace ShootyShootyRL.Mapping
 
             command.ExecuteNonQuery();
 
-            //****SERIALIZE FACTION****//
+            //SERIALIZE FACTION
+            //And the same again...
             update = false;
             if (checkIsInDatabase(Util.DBLookupType.Faction, c.Faction.GUID))
                 update = true;
@@ -671,15 +735,23 @@ namespace ShootyShootyRL.Mapping
             //Commit Transaction
             tr.Commit();
 
-            //****CLEANUP****//
+            //CLEANUP
             CreatureList.Remove(guid);
             CreaturesByDistance.Remove(guid);
 
+            //done!
             command.Dispose();
             fstream.Close();
             return true;
         }
 
+        /// <summary>
+        /// This function checks if an item with the given GUID is in the object DB.
+        /// </summary>
+        /// <param name="lookup"></param>
+        /// <param name="guid"></param>
+        /// <param name="reader"></param>
+        /// <returns></returns>
         private bool checkIsInDatabase(Util.DBLookupType lookup, string guid, out SQLiteDataReader reader)
         {
             SQLiteCommand command = new SQLiteCommand(dbconn);

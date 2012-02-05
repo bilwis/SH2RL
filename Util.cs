@@ -71,5 +71,18 @@ namespace ShootyShootyRL
             System.Text.ASCIIEncoding enc = new System.Text.ASCIIEncoding();
             return enc.GetString(arr);
         }
+
+        public static byte[] ConvertDBByteArray(byte[] from_db)
+        {
+            String str = Util.ByteArrayToString(from_db);
+            byte[] data = new byte[str.Length / 2];
+
+            for (int n = 0; n < str.Length / 2; n++)
+            {
+                data[n] = byte.Parse(str.Substring(n * 2, 2), System.Globalization.NumberStyles.HexNumber);
+            }
+
+            return data;
+        }
     }
 }

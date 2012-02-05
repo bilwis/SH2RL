@@ -161,7 +161,7 @@ namespace ShootyShootyRL.Objects
         protected override bool checkMovement(MovementActionParameters param)
         {
             //_messageHandler.SendDebugMessage("CONSIDERING MOVEMENT FOR " + _name + " WITH PLAYER checkMovement()");
-            return param.map.MovePlayer(param.Target_X, param.Target_Y, param.Target_Z);
+            return param.map.CheckPlayerMovement(param.Target_X, param.Target_Y, param.Target_Z);
         }
 
 
