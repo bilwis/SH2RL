@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.IO;
+using System.IO.Compression;
 
 //************************************************************//
 //*                SHOOTY SHOOTY ROGUELIKE                   *//
@@ -97,6 +98,7 @@ namespace ShootyShootyRL.Mapping
             //TODO: Implement a header for the map file.
 
             FileStream fstream = new FileStream(world.MapFile, FileMode.Open);
+
             tileMap = new byte[WorldMap.CELL_WIDTH, WorldMap.CELL_HEIGHT, WorldMap.CELL_DEPTH];
 
             byte[] temparr = new byte[WorldMap.CELL_HEIGHT*WorldMap.GLOBAL_DEPTH];
@@ -108,6 +110,7 @@ namespace ShootyShootyRL.Mapping
                 offset = (X+x)*(WorldMap.GLOBAL_HEIGHT * WorldMap.GLOBAL_DEPTH) + Y * WorldMap.GLOBAL_DEPTH;
                 fstream.Seek(offset, SeekOrigin.Begin);
                 fstream.Read(temparr, 0, WorldMap.CELL_HEIGHT * WorldMap.GLOBAL_DEPTH);
+
                 for (int y = 0; y < WorldMap.CELL_HEIGHT; y++)
                 {
                     for (int z = 0; z < WorldMap.CELL_DEPTH; z++)
@@ -116,7 +119,7 @@ namespace ShootyShootyRL.Mapping
                     }
                 }
             }
-            
+
             fstream.Close();
         }
 

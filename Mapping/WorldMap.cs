@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Diagnostics;
 using System.IO;
+using System.IO.Compression;
 using libtcod;
 
 //************************************************************//
@@ -190,6 +191,7 @@ namespace ShootyShootyRL.Mapping
 
             Console.WriteLine("Map data generation complete. All queries took " + total.ElapsedMilliseconds + "ms.");
             fstream.Close();
+            fstream.Close();
             GC.Collect();
             
         }
@@ -214,6 +216,32 @@ namespace ShootyShootyRL.Mapping
             }
 
             return map;
+        }
+
+        public void CompressMapFile()
+        {
+            FileStream inStream = new FileStream(MapFile, FileMode.Open);
+            FileStream outStream = new FileStream(MapFile + ".gz", FileMode.Create);
+            GZipStream compressor = new GZipStream(outStream, CompressionMode.Compress);
+
+            inStream.CopyTo(compressor);
+
+            compressor.Close();
+            outStream.Close();
+            inStream.Close();
+        }
+
+        public void DecompressMapFile()
+        {
+            FileStream inStream = new FileStream(MapFile + ".gz", FileMode.Open);
+            FileStream outStream = new FileStream(MapFile, FileMode.Create);
+            GZipStream decompressor = new GZipStream(inStream, CompressionMode.Decompress);
+
+            decompressor.CopyTo(outStream);
+
+            decompressor.Close();
+            outStream.Close();
+            inStream.Close();
         }
 
         public Tile GetTileFromID(byte id)
