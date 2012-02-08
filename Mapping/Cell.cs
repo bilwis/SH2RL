@@ -84,6 +84,7 @@ namespace ShootyShootyRL.Mapping
             return tileMap[abs_x - X, abs_y - Y, abs_z - Z];
         }
 
+        /*
         /// <summary>
         /// Loads the tile ID's for every tile within the cell from the map file specified in the associated WorldMap object.
         /// </summary>
@@ -122,6 +123,25 @@ namespace ShootyShootyRL.Mapping
 
             fstream.Close();
         }
+        */
+
+        
+        public void Load()
+        {
+            tileMap = new byte[WorldMap.CELL_WIDTH, WorldMap.CELL_HEIGHT, WorldMap.CELL_DEPTH];
+
+            for (int x = 0; x < WorldMap.CELL_WIDTH; x++)
+            {
+                for (int y = 0; y < WorldMap.CELL_HEIGHT; y++)
+                {
+                    for (int z = 0; z < WorldMap.CELL_DEPTH; z++)
+                    {
+                        tileMap[x, y, z] = world.GenerateTerrain(X + x, Y + y, Z + z);
+                    }
+                }
+            }
+        }
+
 
         /// <summary>
         /// Unloads the cells tile array and calls the garbage collector.

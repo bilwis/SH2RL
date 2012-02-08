@@ -1137,7 +1137,10 @@ namespace ShootyShootyRL.Mapping
         /// </summary>
         public bool IsMovementPossibleDrop(int abs_x, int abs_y, int curr_z)
         {
-            return IsMovementPossible(abs_x, abs_y, DropObject(abs_x, abs_y, curr_z));
+            int z = DropObject(abs_x, abs_y, curr_z);
+            if (z == -1)
+                return false;
+            return IsMovementPossible(abs_x, abs_y, z);
         }
 
         public void Tick()

@@ -42,9 +42,9 @@ namespace ShootyShootyRL.Mapping
         public static int GLOBAL_HEIGHT = CELLS_Y * CELL_HEIGHT;
         public static int GLOBAL_DEPTH = CELLS_Z * CELL_DEPTH;
 
-        public static float HEIGHTMAP_SCALER = 1.0f;
-        public static int HEIGHTMAP_NORMALIZER_LOW = 7;
-        public static int HEIGHTMAP_NORMALIZER_HIGH = GLOBAL_DEPTH / 2;
+        public static float HEIGHTMAP_SCALER = 2.0f;
+        public static int HEIGHTMAP_NORMALIZER_LOW = 0;
+        public static int HEIGHTMAP_NORMALIZER_HIGH = GLOBAL_DEPTH/2;
 
         public static byte TILE_AIR = 0;
         public static byte TILE_DIRT = 1;
@@ -56,6 +56,9 @@ namespace ShootyShootyRL.Mapping
         Cell[, ,] cells;
 
         Dictionary<byte, Tile> tileDict;
+
+        TCODRandom rand;
+        TCODNoise noise;
 
         public String MapFile;
 
@@ -137,7 +140,7 @@ namespace ShootyShootyRL.Mapping
             //Create Data (if not existant)
             
             //Heightmap
-            
+            /*
             Stopwatch hmsw = new Stopwatch();
             Console.Write("Generating heightmap with seed " + hm_seed + "...");
             hmsw.Start();
@@ -156,19 +159,22 @@ namespace ShootyShootyRL.Mapping
             Console.WriteLine("done!");
             Console.WriteLine("Heightmap export took " + hmsw.ElapsedMilliseconds + "ms.");
 
-            map.normalize(HEIGHTMAP_NORMALIZER_LOW, HEIGHTMAP_NORMALIZER_HIGH);
-              
+            //map.normalize(HEIGHTMAP_NORMALIZER_LOW, HEIGHTMAP_NORMALIZER_HIGH);
+            */  
             //All other stuff
             
+            rand = new TCODRandom(hm_seed, TCODRandomType.ComplementaryMultiplyWithCarry);
+            noise = new TCODNoise(2, rand);
+
+            /*
             FileStream fstream = new FileStream(MapFile, FileMode.Create);
             byte[] temp = new byte[Height * Depth];
 
-            Random rand = new Random();
 
-            //Stopwatch stw = new Stopwatch();
+            float[] f = new float[2];
+
             Stopwatch total = new Stopwatch();
             Console.Write("Starting map data generation");
-            //stw.Start();
             total.Start();
 
             for (int x = 0; x < Width; x++)
@@ -178,21 +184,26 @@ namespace ShootyShootyRL.Mapping
                 {
                     for (int z = 0; z < Depth; z++)
                     {
-                        temp[(y * Depth)+z] = generateTerrain(x, y, z, map.getValue(x,y), rand.NextDouble());
+                        f[0] = (float)x / (float)WorldMap.GLOBAL_WIDTH * 10000;
+                        f[1] = (float)y / (float)WorldMap.GLOBAL_HEIGHT * 10000;
+
+                        //f[2] = (float)z / (float)WorldMap.GLOBAL_DEPTH * 10;
+                        //temp[(y * Depth) + z] = GenerateTerrain(x, y, z, map.getValue(x, y), (((double)noise.getSimplexTurbulence(f, 1))));
+
+                        temp[(y * Depth) + z] = GenerateTerrain(x, y, z, getHeightMapValue(x,y, noise), (((double)noise.getSimplexTurbulence(f, 1))));
                         if (x == 0 && y == 0)
                             Debug.WriteLine("z: " + z + " -  " + temp[(y * Depth) + z]);
                     }
                 }
                 fstream.Write(temp, 0, (Height * Depth));
                 Console.Write(".");
-                //stw.Restart();
             }
             Console.WriteLine("done.");
 
             Console.WriteLine("Map data generation complete. All queries took " + total.ElapsedMilliseconds + "ms.");
             fstream.Close();
             fstream.Close();
-            GC.Collect();
+            GC.Collect();*/
             
         }
 
@@ -212,10 +223,20 @@ namespace ShootyShootyRL.Mapping
                     f[1] = (float)y / (float)WorldMap.GLOBAL_HEIGHT * WorldMap.HEIGHTMAP_SCALER;
 
                     map.setValue(x, y, noise.getPerlinNoise(f));
+                    //map.setValue(x, y, getHeightMapValue(x, y, noise));
                 }
             }
 
             return map;
+        }
+
+        private float getHeightMapValue(int x, int y, TCODNoise noise)
+        {
+            float[] f = { (float)x / (float)WorldMap.GLOBAL_WIDTH * (float)WorldMap.HEIGHTMAP_SCALER, (float)y / (float)WorldMap.GLOBAL_HEIGHT * (float)WorldMap.HEIGHTMAP_SCALER };
+
+            float z = noise.getPerlinNoise(f);
+            
+            return (((float)WorldMap.HEIGHTMAP_NORMALIZER_HIGH - (float)WorldMap.HEIGHTMAP_NORMALIZER_LOW) * ((z+1.0f)/2.0f)) + (float)WorldMap.HEIGHTMAP_NORMALIZER_LOW;
         }
 
         public void CompressMapFile()
@@ -298,8 +319,17 @@ namespace ShootyShootyRL.Mapping
             return cells[rx, ry, rz].CellID;
         }
 
-        private byte generateTerrain(int x, int y, int z, float hm_val, double rand)
+        
+        public byte GenerateTerrain(int x, int y, int z)
         {
+            float[] f = { (float)x / (float)WorldMap.GLOBAL_WIDTH * 10000, (float)y / (float)WorldMap.GLOBAL_HEIGHT * 10000 };
+            return GenerateTerrain(x, y, z, getHeightMapValue(x, y, noise), ((double)noise.getSimplexTurbulence(f, 1)));
+        }
+        
+
+        public byte GenerateTerrain(int x, int y, int z, float hm_val, double rand)
+        {
+            
             for (int st = 0; st < 9; st++)
             {
                 if (x == 325+st && y == 300 && z >= 12+st)
@@ -332,7 +362,6 @@ namespace ShootyShootyRL.Mapping
                 }
             }
 
-
             if (z < hm_val)
             {
                 //return (byte)(GetCellIDFromCoordinates(x, y, z) + 5);
@@ -340,9 +369,9 @@ namespace ShootyShootyRL.Mapping
                     return TILE_WATER;
                 if (z < 11)
                     return TILE_SAND;
-                if (rand < 0.03)
+                if (rand < 0.1)
                     return TILE_SAND;
-                if (rand < 0.05)
+                if (rand < 0.15)
                     return TILE_GRAVEL;
                 return TILE_DIRT;
                  
