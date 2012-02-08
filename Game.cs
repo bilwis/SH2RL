@@ -40,6 +40,8 @@ namespace ShootyShootyRL
         static int MAIN_HEIGHT = (int)Math.Floor(WINDOW_HEIGHT * (MAIN_TO_STATUS_RATIO));
         static int STATUS_HEIGHT = (int)Math.Ceiling(WINDOW_HEIGHT * (1 - MAIN_TO_STATUS_RATIO));
 
+        public bool MULTITHREADED_LOADING = true;
+
         TCODConsole root;
         TCODConsole status;
         TCODConsole main;
@@ -71,7 +73,7 @@ namespace ShootyShootyRL
         {
             //TCODConsole.setCustomFont("terminal12x12_gs_ro.png", (int)TCODFontFlags.LayoutAsciiInRow);
             TCODConsole.initRoot(WINDOW_WIDTH, WINDOW_HEIGHT, "ShootyShooty RL", false,TCODRendererType.SDL);
-            TCODSystem.setFps(30);
+            TCODSystem.setFps(60);
 
             root = TCODConsole.root;
             status = new TCODConsole(WINDOW_WIDTH, STATUS_HEIGHT);
@@ -158,7 +160,16 @@ namespace ShootyShootyRL
             human_faction.AddRelation(test_faction, FactionRelation.Hostile);
             test_faction.AddRelation(human_faction, FactionRelation.Hostile);
 
-            player = new Player(320, 320, 15, "Player", "A ragged and scruffy-looking individual.", '@');
+            root.setForegroundColor(TCODColor.grey);
+            root.setBackgroundColor(TCODColor.grey);
+            root.setBackgroundFlag(TCODBackgroundFlag.Set);
+            root.printFrame(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
+            root.setForegroundColor(TCODColor.black);
+            root.print(WINDOW_WIDTH / 2 - 9, WINDOW_HEIGHT / 2, "Map is generating...");
+            TCODConsole.flush();
+            root.setBackgroundFlag(TCODBackgroundFlag.Default);
+
+            player = new Player(1300, 1300, 35, "Player", "A ragged and scruffy-looking individual.", '@');
             player.Init(TCODColor.yellow, Out, human_faction, new Objects.Action(ActionType.Idle, null, player, 0.0d));
 
             Out.SendMessage("Welcome to [insert game name here]!", Message.MESSAGE_WELCOME);
@@ -170,7 +181,10 @@ namespace ShootyShootyRL
             wm = new WorldMap("test.map");
             map = new Map(player, wm, Out, facman, dbconn);
 
-            player.SetPosition(300,300, map.DropObject(300, 300, 15) +1);
+            //TCODConsole.credits();
+            RenderLoadingScreen();
+
+            player.SetPosition(1300,1300, map.DropObject(1300, 1300, 35) +1);
 
             //testai = new AICreature(302, 300, 15, "TEST", "TEST CREATURE PLEASE IGNORE", 'A');
             //testai.Init(TCODColor.orange, Out, test_faction, new Objects.Action(ActionType.Idle, null, testai, 0.0d), new WalkerAI(rand.Next(0, 100000000)), map);
@@ -182,10 +196,50 @@ namespace ShootyShootyRL
 
             map.AddCreature(player);
 
-            Item test_item = new Item(299, 299, 15, "Shimmering rock", "A shining polished rock which seems to change color when you look at it.", (char)'*');
+            Item test_item = new Item(1299, 1299, map.DropObject(1299, 1299, 35), "Shimmering rock", "A shining polished rock which seems to change color when you look at it.", (char)'*');
             test_item_guid = test_item.GUID;
             test_item.Init(TCODColor.red, Out);
             map.AddItem(test_item);
+        }
+
+        private void RenderLoadingScreen()
+        {
+            TCODSystem.setFps(5);
+
+            int step = 0;
+            while (!map.initialized)
+            {
+                TCODConsole.checkForKeypress();
+                root.setForegroundColor(TCODColor.black);
+                root.setBackgroundColor(TCODColor.grey);
+                root.setBackgroundFlag(TCODBackgroundFlag.Set);
+                switch (step)
+                {
+                    case 0:
+                        root.print(WINDOW_WIDTH / 2 + 8, WINDOW_HEIGHT / 2, " ");
+                        root.print(WINDOW_WIDTH / 2 + 9, WINDOW_HEIGHT / 2, " ");
+                        root.print(WINDOW_WIDTH / 2 + 10, WINDOW_HEIGHT / 2, " ");
+                        break;
+                    case 1:
+                        root.print(WINDOW_WIDTH / 2 + 8, WINDOW_HEIGHT / 2, ".");
+                        break;
+                    case 2:
+                        root.print(WINDOW_WIDTH / 2 + 9, WINDOW_HEIGHT / 2, ".");
+                        break;
+                    case 3:
+                        root.print(WINDOW_WIDTH / 2 + 10, WINDOW_HEIGHT / 2, ".");
+                        step = -1;
+                        break;
+                }
+
+                step++;
+                TCODConsole.flush();
+                continue;
+
+            }
+
+            TCODSystem.setFps(60);
+            root.setBackgroundFlag(TCODBackgroundFlag.Default);
         }
 
         public void InitDB()
@@ -339,6 +393,13 @@ namespace ShootyShootyRL
             main.setForegroundColor(TCODColor.white);
             main.print(2, 0, "Turn: " + turn + " | Gameturn: " + gameTurn);
             main.print(2, 1, "Z_LEVEL: " + player.Z);
+
+            if (map.initialized)
+                main.setForegroundColor(TCODColor.green);
+            else
+                main.setForegroundColor(TCODColor.red);
+
+            main.print(WINDOW_WIDTH - 1, 0, "+");
 
             TCODConsole.blit(main, 0, 0, WINDOW_WIDTH, MAIN_HEIGHT, root, 0, 0);
 

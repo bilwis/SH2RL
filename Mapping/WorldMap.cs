@@ -30,21 +30,21 @@ namespace ShootyShootyRL.Mapping
         public int Width, Height, Depth;
         public int CellsX, CellsY, CellsZ;
 
-        public static int CELL_WIDTH = 150;
-        public static int CELL_HEIGHT = 150;
-        public static int CELL_DEPTH = 10;
+        public static int CELL_WIDTH = 300;
+        public static int CELL_HEIGHT = 300;
+        public static int CELL_DEPTH = 30;
 
-        public static int CELLS_X = 6;
-        public static int CELLS_Y = 6;
+        public static int CELLS_X = 10;
+        public static int CELLS_Y = 10;
         public static int CELLS_Z = 6;
 
         public static int GLOBAL_WIDTH = CELLS_X * CELL_WIDTH;
         public static int GLOBAL_HEIGHT = CELLS_Y * CELL_HEIGHT;
         public static int GLOBAL_DEPTH = CELLS_Z * CELL_DEPTH;
 
-        public static float HEIGHTMAP_SCALER = 2.0f;
+        public static float HEIGHTMAP_SCALER = 1.0f;
         public static int HEIGHTMAP_NORMALIZER_LOW = 0;
-        public static int HEIGHTMAP_NORMALIZER_HIGH = GLOBAL_DEPTH/2;
+        public static int HEIGHTMAP_NORMALIZER_HIGH = GLOBAL_DEPTH/2-3;
 
         public static byte TILE_AIR = 0;
         public static byte TILE_DIRT = 1;
@@ -77,7 +77,7 @@ namespace ShootyShootyRL.Mapping
             CellsY = WorldMap.CELLS_Y;
             CellsZ = WorldMap.CELLS_Z;
 
-            uint hm_seed = 133336;
+            uint hm_seed = 133337;
 
             //Create Cells
             cells = new Cell[CellsX, CellsY, CellsZ];
@@ -207,6 +207,7 @@ namespace ShootyShootyRL.Mapping
             
         }
 
+        
         private TCODHeightMap makeHeightMap(int width, int height, uint seed)
         {
             TCODHeightMap map = new TCODHeightMap(width, height);
@@ -222,7 +223,7 @@ namespace ShootyShootyRL.Mapping
                     f[0] = (float)x / (float)WorldMap.GLOBAL_WIDTH * WorldMap.HEIGHTMAP_SCALER;
                     f[1] = (float)y / (float)WorldMap.GLOBAL_HEIGHT * WorldMap.HEIGHTMAP_SCALER;
 
-                    map.setValue(x, y, noise.getPerlinNoise(f));
+                    map.setValue(x, y, noise.getSimplexNoise(f));
                     //map.setValue(x, y, getHeightMapValue(x, y, noise));
                 }
             }
@@ -234,7 +235,7 @@ namespace ShootyShootyRL.Mapping
         {
             float[] f = { (float)x / (float)WorldMap.GLOBAL_WIDTH * (float)WorldMap.HEIGHTMAP_SCALER, (float)y / (float)WorldMap.GLOBAL_HEIGHT * (float)WorldMap.HEIGHTMAP_SCALER };
 
-            float z = noise.getPerlinNoise(f);
+            float z = noise.getSimplexNoise(f);
             
             return (((float)WorldMap.HEIGHTMAP_NORMALIZER_HIGH - (float)WorldMap.HEIGHTMAP_NORMALIZER_LOW) * ((z+1.0f)/2.0f)) + (float)WorldMap.HEIGHTMAP_NORMALIZER_LOW;
         }
@@ -308,6 +309,30 @@ namespace ShootyShootyRL.Mapping
             return null;
         }
 
+        public Cell GetAdjacentCell(int dx, int dy, int dz, Cell c, System.Threading.Thread t)
+        {
+            int rx = (c.X / CELL_WIDTH); //TRUNCATED!
+            int ry = (c.Y / CELL_HEIGHT);
+            int rz = (c.Z / CELL_DEPTH);
+
+            if (rx + dx >= 0 && ry + dy >= 0 && rz + dz >= 0)
+            {
+                try
+                {
+                    t.Interrupt();
+                    return cells[rx + dx, ry + dy, rz + dz];
+                }
+                catch
+                {
+                    t.Interrupt();
+                    return null;
+                }
+            }
+
+            t.Interrupt();
+            return null;
+        }
+
         public int GetCellIDFromCoordinates(int x, int y, int z)
         {
             //TODO: FALSE COORDINATES HANDLING !!!
@@ -329,33 +354,34 @@ namespace ShootyShootyRL.Mapping
 
         public byte GenerateTerrain(int x, int y, int z, float hm_val, double rand)
         {
-            
-            for (int st = 0; st < 9; st++)
+            if (y == 1300)
             {
-                if (x == 325+st && y == 300 && z >= 12+st)
-                    return TILE_AIR;
-                if (x == 325+st && y == 300 && z == 11+st)
-                    return TILE_GRAVEL;
-            }
-
-            if (x > 318 && x < 325 && y == 300 && z == 11)
+                for (int st = 0; st < 50; st++)
+                {
+                    if (x == 1325 + st  && z >= 32 + st && z < 35 + st)
+                        return TILE_AIR;
+                    if (x == 1325 + st  && z == 31 + st)
+                        return TILE_GRAVEL;
+                }
+            
+            if (x > 1318 && x < 1325  && z == 31)
                 return TILE_AIR;
-            if (x > 318 && x < 325 && y == 300 && z == 10)
+            if (x > 1318 && x < 1325  && z == 30)
                 return TILE_GRAVEL;
 
-            
+            }
 
-            if (x > 280 && x < 320)
+            if (x > 1280 && x < 1320 && z < 41)
             {
-                if (y > 280 && y < 320)
+                if (y > 1280 && y < 1320)
                 {
-                    if ((y == 281 || y == 319) && (z > 10 && z < 21))
+                    if ((y == 1281 || y == 1319) && (z > 30 && z < 41))
                         return TILE_STONE_WALL;
-                    if ((x == 281 || x == 319) && (z > 10 && z < 21))
+                    if ((x == 1281 || x == 1319) && (z > 30 && z < 41))
                         return TILE_STONE_WALL;
                     if (z < 10)
                         return TILE_GRAVEL;
-                    if (z == 10 || z == 20)
+                    if (z == 30 || z == 40)
                         return TILE_STONE_WALL;
 
                     return TILE_AIR;

@@ -6,6 +6,7 @@ using libtcod;
 using System.Diagnostics;
 using System.Data.SQLite;
 using System.IO;
+using System.Threading;
 using System.Runtime.Serialization.Formatters.Binary;
 
 using ShootyShootyRL.Objects;
@@ -35,12 +36,16 @@ namespace ShootyShootyRL.Mapping
     {
         private static bool DEBUG_OUTPUT = true;
 
+        object cellLock = new object();
         Cell[, ,] cells;
+        bool[, ,] loaded;
         WorldMap wm;
         public Creature Player;
         public Dictionary<String, Creature> CreatureList;
         public Dictionary<String, double> CreaturesByDistance;
         public Dictionary<String, Item> ItemList;
+
+        public bool initialized = false;
 
         public static int VIEW_DISTANCE_TILES_Z = 10;
         public static int VIEW_DISTANCE_CREATURES_DOWN_Z = 3;
@@ -79,6 +84,9 @@ namespace ShootyShootyRL.Mapping
             cells[1, 1, 1].Load();
             currentCellId = cells[1, 1, 1].CellID;
 
+            loaded = new bool[3, 3, 3];
+            loaded[1, 1, 1] = true;
+
             for (int x = -1; x < 2; x++)
             {
                 for (int y = -1; y < 2; y++)
@@ -88,7 +96,22 @@ namespace ShootyShootyRL.Mapping
                         if (!(x == 0 && y == 0 && z == 0))
                         {
                             cells[1 + x, 1 + y, 1 + z] = wm.GetAdjacentCell(x, y, z, cells[1, 1, 1]);
-                            cells[1 + x, 1 + y, 1 + z].Load();
+
+                            if (cells[1 + x, 1 + y, 1 + z] == null)
+                                throw new Exception("Player in border cell!");
+
+                            if (Program.game.MULTITHREADED_LOADING)
+                            {
+                                System.ComponentModel.BackgroundWorker bw = new System.ComponentModel.BackgroundWorker();
+                                bw.DoWork += new System.ComponentModel.DoWorkEventHandler(backgroundWorker_DoWork);
+                                bw.RunWorkerCompleted += new System.ComponentModel.RunWorkerCompletedEventHandler(backgroundWorker_RunWorkerCompleted);
+
+                                bw.RunWorkerAsync(cells[1 + x, 1 + y, 1 + z]);
+                            }
+                            else
+                            {
+                                cells[1+ x, 1+  y, 1+ z].Load();
+                            }
                         }
                     }
                 }
@@ -102,6 +125,7 @@ namespace ShootyShootyRL.Mapping
         /// <returns>true if the movement is possible, false otherwise</returns>
         public bool CheckPlayerMovement(int abs_x, int abs_y, int abs_z)
         {
+
             int cell_x = -1;
             int cell_y = -1;
             int cell_z = -1;
@@ -121,6 +145,10 @@ namespace ShootyShootyRL.Mapping
             //Not the same cell anymore? Better load the new ones!
             if (relCellID != currentCellId)
             {
+                //If the map cells haven't been completely loaded/streamed yet, deny movement
+                if (!initialized)
+                    return false;
+
                 //Get coordinates of the now player-holding cell relative to the previous.
                 //NOTE: This also limits the movement. If the player is to be "teleported" to a
                 //location more than one cell's distance away, a different function must be used (TODO).
@@ -272,6 +300,8 @@ namespace ShootyShootyRL.Mapping
                 causes_validation[0] = false;
             }
 
+            initialized = false;
+
             //---------------------------------------------------------------------------------
             //I) UNLOAD OLD CELLS, i.e. the cells on the "far end" of the coordinate block
             //---------------------------------------------------------------------------------
@@ -348,8 +378,20 @@ namespace ShootyShootyRL.Mapping
                                 if (!cause_load[0] && !cause_load[1] && !cause_load[2])
                                     continue;
 
+                                loaded[x, y, z] = false;
                                 cells[x, y, z] = wm.GetAdjacentCell(shift_vect[0], shift_vect[1], shift_vect[2], tempcells[x, y, z]);
-                                cells[x, y, z].Load();
+                                if (Program.game.MULTITHREADED_LOADING)
+                                {
+                                    System.ComponentModel.BackgroundWorker bw = new System.ComponentModel.BackgroundWorker();
+                                    bw.DoWork += new System.ComponentModel.DoWorkEventHandler(backgroundWorker_DoWork);
+                                    bw.RunWorkerCompleted += new System.ComponentModel.RunWorkerCompletedEventHandler(backgroundWorker_RunWorkerCompleted);
+
+                                    bw.RunWorkerAsync(cells[ x, y, z]);
+                                }
+                                else
+                                {
+                                    cells[x,y ,z].Load();
+                                }
                                 loadCellContent(cells[x, y, z].CellID);
                                 derp++;
                                 cause_load[2] = false;
@@ -366,6 +408,34 @@ namespace ShootyShootyRL.Mapping
 
             return true;
         }
+
+        private void backgroundWorker_DoWork(object sender, System.ComponentModel.DoWorkEventArgs e)
+        {
+            Cell c = (Cell)e.Argument;
+            c.Load();
+            e.Result = c.CellID;
+        }
+
+        private void backgroundWorker_RunWorkerCompleted(object sender, System.ComponentModel.RunWorkerCompletedEventArgs e)
+        {
+            int[] coords = getInternalCellPosFromID((int)e.Result);
+            loaded[coords[0], coords[1], coords[2]] = true;
+            Console.WriteLine("Cell #" + (int)e.Result + " loaded! Stopping Thread.");
+            if (checkAllLoaded())
+                initialized = true;
+        }
+
+        private bool checkAllLoaded()
+        {
+            foreach (bool b in loaded)
+            {
+                if (!b)
+                    return false;
+            }
+
+            return true;
+        }
+
 
         /// <summary>
         /// This function deserializes (loads) an item from the item database.

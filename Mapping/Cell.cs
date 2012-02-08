@@ -126,7 +126,7 @@ namespace ShootyShootyRL.Mapping
         */
 
         
-        public void Load()
+        public bool Load()
         {
             tileMap = new byte[WorldMap.CELL_WIDTH, WorldMap.CELL_HEIGHT, WorldMap.CELL_DEPTH];
 
@@ -140,6 +140,8 @@ namespace ShootyShootyRL.Mapping
                     }
                 }
             }
+
+            return true;
         }
 
 
