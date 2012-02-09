@@ -104,6 +104,7 @@ namespace ShootyShootyRL.Mapping
             //Create Tiles
             makeDefaultTileSetup();
             loadTileDict();
+            makeTestDiffs();
             
             //COLOR EACH CELL RANDOMLY BY ASSIGNING A SPECIAL TILE TO EACH CELL
             /*
@@ -398,6 +399,61 @@ namespace ShootyShootyRL.Mapping
             //Done!
             return;
         }
+
+        private void makeTestDiffs()
+        {
+            SQLiteCommand command = new SQLiteCommand(dbconn);
+            SQLiteTransaction trans = dbconn.BeginTransaction();
+            int y = 1300;
+
+            for (int x = 1300; x < 1400; x++)
+            {
+                for (int z = 30; z < 100; z++)
+                {
+                    for (int st = 0; st < 50; st++)
+                    {
+                        if (x == 1325 + st && z >= 32 + st && z < 35 + st)
+                        {
+                            command.CommandText = "INSERT INTO diff_map (cell_id, abs_x, abs_y, abs_z, tile) VALUES ('" +
+                                GetCellIDFromCoordinates(x, y, z) + "','" +
+                                x + "','" + y + "','" + z + "','" +
+                                TILE_AIR + "')";
+                            command.ExecuteNonQuery();
+                        }
+
+                        if (x == 1325 + st && z == 31 + st)
+                        {
+                            command.CommandText = "INSERT INTO diff_map (cell_id, abs_x, abs_y, abs_z, tile) VALUES ('" +
+                                GetCellIDFromCoordinates(x, y, z) + "','" +
+                                x + "','" + y + "','" + z + "','" +
+                                TILE_GRAVEL + "')";
+                            command.ExecuteNonQuery();
+                        }
+                    }
+
+                    if (x > 1318 && x < 1325 && z == 31)
+                    {
+                        command.CommandText = "INSERT INTO diff_map (cell_id, abs_x, abs_y, abs_z, tile) VALUES ('" +
+                            GetCellIDFromCoordinates(x, y, z) + "','" +
+                            x + "','" + y + "','" + z + "','" +
+                            TILE_AIR + "')";
+                        command.ExecuteNonQuery();
+                    }
+                    if (x > 1318 && x < 1325 && z == 30)
+                    {
+                        command.CommandText = "INSERT INTO diff_map (cell_id, abs_x, abs_y, abs_z, tile) VALUES ('" +
+                            GetCellIDFromCoordinates(x, y, z) + "','" +
+                            x + "','" + y + "','" + z + "','" +
+                            TILE_GRAVEL + "')";
+                        command.ExecuteNonQuery();
+                    }
+                }
+            }
+
+            trans.Commit();
+            trans.Dispose();
+            command.Dispose();
+        }
         
         private TCODHeightMap makeHeightMap(int width, int height, uint seed)
         {
@@ -545,22 +601,24 @@ namespace ShootyShootyRL.Mapping
 
         public ushort GenerateTerrain(int x, int y, int z, float hm_val, double rand)
         {
+            /*
             if (y == 1300)
             {
                 for (int st = 0; st < 50; st++)
                 {
-                    if (x == 1325 + st  && z >= 32 + st && z < 35 + st)
+                    if (x == 1325 + st && z >= 32 + st && z < 35 + st)
                         return TILE_AIR;
-                    if (x == 1325 + st  && z == 31 + st)
+                    if (x == 1325 + st && z == 31 + st)
                         return TILE_GRAVEL;
                 }
-            
-            if (x > 1318 && x < 1325  && z == 31)
-                return TILE_AIR;
-            if (x > 1318 && x < 1325  && z == 30)
-                return TILE_GRAVEL;
+
+                if (x > 1318 && x < 1325 && z == 31)
+                    return TILE_AIR;
+                if (x > 1318 && x < 1325 && z == 30)
+                    return TILE_GRAVEL;
 
             }
+            */
 
             if (x > 1280 && x < 1320 && z < 41)
             {

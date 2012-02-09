@@ -84,9 +84,9 @@ namespace ShootyShootyRL.Mapping
             return tileMap[abs_x - X, abs_y - Y, abs_z - Z];
         }
 
-        public void SetTile(int abs_x, int abs_y, int abs_z)
+        public void SetTile(int abs_x, int abs_y, int abs_z, ushort tile)
         {
-
+            tileMap[abs_x - X, abs_y - Y, abs_z - Z] = tile;
         }
         
         public bool Load()

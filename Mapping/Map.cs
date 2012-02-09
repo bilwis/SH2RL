@@ -39,6 +39,8 @@ namespace ShootyShootyRL.Mapping
         object cellLock = new object();
         Cell[, ,] cells;
         bool[, ,] loaded;
+        bool[, ,] load_diff;
+
         WorldMap wm;
         public Creature Player;
         public Dictionary<String, Creature> CreatureList;
@@ -87,6 +89,9 @@ namespace ShootyShootyRL.Mapping
             loaded = new bool[3, 3, 3];
             loaded[1, 1, 1] = true;
 
+            load_diff = new bool[3, 3, 3];
+            load_diff[1, 1, 1] = true;
+
             for (int x = -1; x < 2; x++)
             {
                 for (int y = -1; y < 2; y++)
@@ -102,6 +107,8 @@ namespace ShootyShootyRL.Mapping
 
                             if (Program.game.MULTITHREADED_LOADING)
                             {
+                                load_diff[1 + x, 1 + y, 1 + z] = true;
+
                                 System.ComponentModel.BackgroundWorker bw = new System.ComponentModel.BackgroundWorker();
                                 bw.DoWork += new System.ComponentModel.DoWorkEventHandler(backgroundWorker_DoWork);
                                 bw.RunWorkerCompleted += new System.ComponentModel.RunWorkerCompletedEventHandler(backgroundWorker_RunWorkerCompleted);
@@ -379,6 +386,7 @@ namespace ShootyShootyRL.Mapping
                                     continue;
 
                                 loaded[x, y, z] = false;
+                                load_diff[x, y, z] = true;
                                 cells[x, y, z] = wm.GetAdjacentCell(shift_vect[0], shift_vect[1], shift_vect[2], tempcells[x, y, z]);
                                 if (Program.game.MULTITHREADED_LOADING)
                                 {
@@ -422,7 +430,10 @@ namespace ShootyShootyRL.Mapping
             loaded[coords[0], coords[1], coords[2]] = true;
             Console.WriteLine("Cell #" + (int)e.Result + " loaded! Stopping Thread.");
             if (checkAllLoaded())
+            {
+                loadDifferences();
                 initialized = true;
+            }
         }
 
         private bool checkAllLoaded()
@@ -436,6 +447,62 @@ namespace ShootyShootyRL.Mapping
             return true;
         }
 
+        private void loadDifferences()
+        {
+            List<int> cell_diff = new List<int>();
+            Dictionary<int, Cell> cell_dict = new Dictionary<int, Cell>();
+
+            //Retrieve list of cell ids for which differences need to be loaded
+            for (int x = 0; x < 3; x++)
+            {
+                for (int y = 0; y < 3; y++)
+                {
+                    for (int z = 0; z < 3; z++)
+                    {
+                        if (load_diff[x, y, z])
+                        {
+                            cell_diff.Add(cells[x, y, z].CellID);
+                            cell_dict.Add(cells[x, y, z].CellID, cells[x, y, z]);
+                        }
+                    }
+                }
+            }
+
+            String whereClause = "";
+            int[] ids = cell_diff.ToArray<int>();
+
+            for (int i = 0; i < ids.Length; i++)
+            {
+                whereClause += "cell_id='"+ ids[i] +"'";
+                if (i != ids.Length - 1)
+                    whereClause += " or ";
+            }
+
+            /*
+            command.CommandText = "CREATE TABLE IF NOT EXISTS diff_map (cell_id BLOB NOT NULL, abs_x BLOB, abs_y BLOB, abs_z BLOB, tile BLOB);";
+            command.ExecuteNonQuery();
+             */
+
+            SQLiteCommand command = new SQLiteCommand(dbconn);
+            SQLiteDataReader reader;
+
+            command.CommandText = "SELECT * FROM diff_map WHERE " + whereClause;
+            reader = command.ExecuteReader();
+
+            while (reader.Read())
+            {
+                cell_dict[Convert.ToInt32(Util.ByteArrayToString((byte[])reader[0]))].SetTile(
+                    Convert.ToInt32(Util.ByteArrayToString((byte[])reader[1])),
+                    Convert.ToInt32(Util.ByteArrayToString((byte[])reader[2])),
+                    Convert.ToInt32(Util.ByteArrayToString((byte[])reader[3])),
+                    Convert.ToUInt16(Util.ByteArrayToString((byte[])reader[4])));
+            }
+
+            reader.Close();
+            reader.Dispose();
+            command.Dispose();
+            load_diff = new bool[3, 3, 3];
+        }
 
         /// <summary>
         /// This function deserializes (loads) an item from the item database.
