@@ -57,11 +57,7 @@ namespace ShootyShootyRL.Objects
         public double EMovementCost = 15;
         public double EDiagMovementCost = 19;
 
-        public override bool Save()
-        {
-            initialized = false;
-            return true;
-        }
+
 
         public override void SetPosition(int x, int y, int z)
         {
@@ -140,7 +136,7 @@ namespace ShootyShootyRL.Objects
             return param.map.IsMovementPossible(param.Target_X, param.Target_Y, param.Target_Z);
         }
 
-        //Actions !
+        //TODO: Actions !
         public void Init(TCODColor color, MessageHandler msg, Faction fac, Action firstAction)
         {
             ForeColor = color;
@@ -152,6 +148,12 @@ namespace ShootyShootyRL.Objects
 
             initialized = true;
             msg.SendDebugMessage("New object created and initialized with GUID " + this.GUID + ", name: " + this.Name + ".");
+        }
+
+        public override bool Save()
+        {
+            initialized = false;
+            return true;
         }
 
         public Creature(int x, int y, int z, String name, String desc, char displaychar)

@@ -1032,7 +1032,7 @@ namespace ShootyShootyRL.Mapping
         /// This function retrieves the ID of the tile at the given location.
         /// </summary>
         /// <returns>A byte representing the tile at the given location or 0 if the cell holding the tile is not loaded.</returns>
-        private byte getTileIDFromCells(int abs_x, int abs_y, int abs_z)
+        private ushort getTileIDFromCells(int abs_x, int abs_y, int abs_z)
         {
             int x = 0, y = 0, z = 0;
             
@@ -1302,7 +1302,7 @@ namespace ShootyShootyRL.Mapping
             //AND THEY'RE OFF!
 
             //Buffer all tiles in the viewport into a three dimensional byte array
-            byte[, ,] tilearr = new byte[right - left + 1, bottom - top + 1, (curr_z + z_view_dist) - (curr_z - z_view_dist) + 1];
+            ushort[, ,] tilearr = new ushort[right - left + 1, bottom - top + 1, (curr_z + z_view_dist) - (curr_z - z_view_dist) + 1];
             for (abs_x = left; abs_x < right; abs_x++)
             {
                 for (abs_y = top; abs_y < bottom; abs_y++)

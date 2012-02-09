@@ -22,10 +22,11 @@ using libtcod;
 
 namespace ShootyShootyRL.Mapping
 {
+    [Serializable()]
     public class Tile
     {
         private String _guid;
-        public String ID
+        public String GUID
         {
             get
             {
@@ -35,7 +36,9 @@ namespace ShootyShootyRL.Mapping
 
         public String Name;
         public String Description;
+        [field:NonSerialized()]
         public TCODColor ForeColor;
+        [field:NonSerialized()]
         public TCODColor BackColor;
 
         char _char;
@@ -61,29 +64,30 @@ namespace ShootyShootyRL.Mapping
         public bool BlocksMovement;
         public bool BlocksLOS;
 
-        public Tile(String Name, String Description, TCODColor ForeColor, TCODColor BackColor, char DisplChar, bool BlocksMovement, bool BlocksLOS)
+        bool initialized = false;
+
+        public Tile(String Name, String Description, char DisplChar, bool BlocksMovement, bool BlocksLOS)
         {
             _guid = System.Guid.NewGuid().ToString();
             this.Name = Name;
             this.Description = Description;
-            this.ForeColor = ForeColor;
-            this.BackColor = BackColor;
             this._char = DisplChar;
             this.BlocksLOS = BlocksLOS;
             this.BlocksMovement = BlocksMovement;
         }
-        
 
-        public Tile(String ID, String Name, String Description, TCODColor ForeColor, TCODColor BackColor, char DisplChar, bool BlocksMovement, bool BlocksLOS)
+        public void Init(TCODColor ForeColor, TCODColor BackColor)
         {
-            _guid = ID;
-            this.Name = Name;
-            this.Description = Description;
             this.ForeColor = ForeColor;
             this.BackColor = BackColor;
-            this._char = DisplChar;
-            this.BlocksLOS = BlocksLOS;
-            this.BlocksMovement = BlocksMovement;
+            initialized = true;
         }
+
+        public bool Save()
+        {
+            initialized = false;
+            return true;
+        }
+
     }
 }

@@ -174,14 +174,10 @@ namespace ShootyShootyRL
 
             Out.SendMessage("Welcome to [insert game name here]!", Message.MESSAGE_WELCOME);
             Out.SendMessage("You wake up in a damp and shoddy shack. Or maybe a patch of dirt. Depends on the games' version.");
-            Out.SendMessage("TERROR! TEST ERROR! GET IT?", Message.MESSAGE_ERROR);
 
-            Out.SendMessage("Distance between s(10|10) and r(15|15): " + Util.CalculateDistance(10, 10, 5, 15, 15, 5));
-
-            wm = new WorldMap("test.map");
+            wm = new WorldMap("test.map", dbconn);
             map = new Map(player, wm, Out, facman, dbconn);
 
-            //TCODConsole.credits();
             RenderLoadingScreen();
 
             player.SetPosition(1300,1300, map.DropObject(1300, 1300, 35) +1);
@@ -210,7 +206,7 @@ namespace ShootyShootyRL
             while (!map.initialized)
             {
                 TCODConsole.checkForKeypress();
-                root.setForegroundColor(TCODColor.black);
+                root.setForegroundColor(TCODColor.silver);
                 root.setBackgroundColor(TCODColor.grey);
                 root.setBackgroundFlag(TCODBackgroundFlag.Set);
                 switch (step)
@@ -250,6 +246,12 @@ namespace ShootyShootyRL
 
             SQLiteCommand command = new SQLiteCommand(dbconn);
 
+            //Tiles Table
+            command.CommandText = "CREATE TABLE IF NOT EXISTS tiles (guid BLOB NOT NULL PRIMARY KEY, data BLOB NOT NULL, fore BLOB NOT NULL, back BLOB NOT NULL);";
+            command.ExecuteNonQuery();
+            command.CommandText = "CREATE TABLE IF NOT EXISTS tile_mapping (id BLOB NOT NULL PRIMARY KEY, guid BLOB NOT NULL);";
+            command.ExecuteNonQuery();
+
             //Items Table
             command.CommandText = "CREATE TABLE IF NOT EXISTS items (guid BLOB NOT NULL PRIMARY KEY, data BLOB NOT NULL, color BLOB NOT NULL);";
             command.ExecuteNonQuery();
@@ -265,6 +267,10 @@ namespace ShootyShootyRL
 
             //Cell content Table
             command.CommandText = "CREATE TABLE IF NOT EXISTS cell_contents (cell_id BLOB NOT NULL, content_type BLOB NOT NULL, content_guid BLOB NOT NULL PRIMARY KEY);";
+            command.ExecuteNonQuery();
+
+            //Cell tile changes Table
+            command.CommandText = "CREATE TABLE IF NOT EXISTS diff_map (cell_id BLOB NOT NULL, abs_x BLOB, abs_y BLOB, abs_z BLOB, tile BLOB);";
             command.ExecuteNonQuery();
 
             command.Dispose();
@@ -367,6 +373,11 @@ namespace ShootyShootyRL
                 tar_y = 300;
                 tar_z = map.DropObject(300, 300, 12);
                 return true;
+            }
+
+            if (key.KeyCode == TCODKeyCode.F12)
+            {
+                GC.Collect();
             }
             
 

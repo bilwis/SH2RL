@@ -7,6 +7,8 @@ using System.IO;
 using System.IO.Compression;
 using libtcod;
 
+using System.Data.SQLite;
+using System.Runtime.Serialization.Formatters.Binary;
 //************************************************************//
 //*                SHOOTY SHOOTY ROGUELIKE                   *//
 //*     some really early pre-alpha version or something     *//
@@ -46,25 +48,27 @@ namespace ShootyShootyRL.Mapping
         public static int HEIGHTMAP_NORMALIZER_LOW = 0;
         public static int HEIGHTMAP_NORMALIZER_HIGH = GLOBAL_DEPTH/2-3;
 
-        public static byte TILE_AIR = 0;
-        public static byte TILE_DIRT = 1;
-        public static byte TILE_STONE_WALL = 2;
-        public static byte TILE_GRAVEL = 3;
-        public static byte TILE_SAND = 4;
-        public static byte TILE_WATER = 5;
+        public static ushort TILE_AIR = 0;
+        public static ushort TILE_DIRT = 1;
+        public static ushort TILE_STONE_WALL = 2;
+        public static ushort TILE_GRAVEL = 3;
+        public static ushort TILE_SAND = 4;
+        public static ushort TILE_WATER = 5;
 
         Cell[, ,] cells;
 
-        Dictionary<byte, Tile> tileDict;
+        Dictionary<ushort, Tile> tileDict;
 
         TCODRandom rand;
         TCODNoise noise;
 
         public String MapFile;
+        SQLiteConnection dbconn;
 
-        public WorldMap(String mapFile)
+        public WorldMap(String mapFile, SQLiteConnection dbconn)
         {
             MapFile = mapFile;
+            this.dbconn = dbconn;
             makeTestSetup();
         }
 
@@ -98,19 +102,8 @@ namespace ShootyShootyRL.Mapping
             }
 
             //Create Tiles
-            tileDict = new Dictionary<byte,Tile>();
-            Tile Air = new Tile("Air", "You should not be seeing this. Please contact your local FBI office.", null, null, ' ', false, false);
-            Tile Dirt = new Tile("Dirt", "A patch of dirt with small gravel and traces of sand.", new libtcod.TCODColor(205, 133, 63), new libtcod.TCODColor(205, 133, 63), '.', true, false);
-            Tile Gravel = new Tile("Gravel", "A patch of gravel with traces of sand and dirt.", new libtcod.TCODColor(112, 128, 144), new libtcod.TCODColor(210, 180, 140), '.', true, false);
-            Tile Sand = new Tile("Sand", "A patch of sand.", new libtcod.TCODColor(238, 221, 130), new libtcod.TCODColor(238, 221, 130), '.', true, false);
-            Tile Stone = new Tile("Stone Wall", "A wall of stones stacked on top of each other. It doesn't look very solid.", libtcod.TCODColor.grey, libtcod.TCODColor.darkerGrey, '#', true, true);
-            Tile Water = new Tile("Water", "A lake.", libtcod.TCODColor.blue, libtcod.TCODColor.darkBlue, '~', true, false);
-            tileDict.Add(TILE_AIR, Air);
-            tileDict.Add(TILE_DIRT, Dirt);
-            tileDict.Add(TILE_STONE_WALL, Stone);
-            tileDict.Add(TILE_SAND, Sand);
-            tileDict.Add(TILE_GRAVEL, Gravel);
-            tileDict.Add(TILE_WATER, Water);
+            makeDefaultTileSetup();
+            loadTileDict();
             
             //COLOR EACH CELL RANDOMLY BY ASSIGNING A SPECIAL TILE TO EACH CELL
             /*
@@ -207,6 +200,204 @@ namespace ShootyShootyRL.Mapping
             
         }
 
+        private void makeDefaultTileSetup()
+        {
+            Tile Air = new Tile("Air", "You should not be seeing this. Please contact your local FBI office.", ' ', false, false);
+            Tile Dirt = new Tile("Dirt", "A patch of dirt with small gravel and traces of sand.", '.', true, false);
+            Tile Gravel = new Tile("Gravel", "A patch of gravel with traces of sand and dirt.", '.', true, false);
+            Tile Sand = new Tile("Sand", "A patch of sand.", '.', true, false);
+            Tile Stone = new Tile("Stone Wall", "A wall of stones stacked on top of each other. It doesn't look very solid.", '#', true, true);
+            Tile Water = new Tile("Water", "A lake.", '~', true, false);
+
+            Air.Init(null, null);
+            Dirt.Init(new libtcod.TCODColor(205, 133, 63), new libtcod.TCODColor(205, 133, 63));
+            Gravel.Init(new libtcod.TCODColor(112, 128, 144), new libtcod.TCODColor(210, 180, 140));
+            Sand.Init(new libtcod.TCODColor(238, 221, 130), new libtcod.TCODColor(238, 221, 130));
+            Stone.Init(libtcod.TCODColor.grey, libtcod.TCODColor.darkerGrey);
+            Water.Init(libtcod.TCODColor.blue, libtcod.TCODColor.darkBlue);
+
+            Dictionary<ushort, Tile> tiles = new Dictionary<ushort, Tile>();
+            tiles.Add(TILE_AIR, Air);
+            tiles.Add(TILE_DIRT, Dirt);
+            tiles.Add(TILE_GRAVEL, Gravel);
+            tiles.Add(TILE_SAND, Sand);
+            tiles.Add(TILE_STONE_WALL, Stone);
+            tiles.Add(TILE_WATER, Water);
+
+            byte[] arr;
+            string data;
+            int fore, back;
+
+            MemoryStream fstream = new MemoryStream();
+            BinaryFormatter serializer = new BinaryFormatter();
+            SQLiteCommand command = new SQLiteCommand(dbconn);
+
+            command.CommandText = "DROP TABLE tiles";
+            command.ExecuteNonQuery();
+            command.CommandText = "DROP TABLE tile_mapping";
+            command.ExecuteNonQuery();
+
+            command.CommandText = "CREATE TABLE tiles (guid BLOB NOT NULL PRIMARY KEY, data BLOB NOT NULL, fore BLOB NOT NULL, back BLOB NOT NULL);";
+            command.ExecuteNonQuery();
+            command.CommandText = "CREATE TABLE tile_mapping (id BLOB NOT NULL PRIMARY KEY, guid BLOB NOT NULL);";
+            command.ExecuteNonQuery();
+
+            //Begin a new SQLiteTransaction 
+            //NOTE: A SQL Transaction stores several SQL commands
+            //before commiting them to the database. This can save a
+            //lot of time.
+            SQLiteTransaction tr = dbconn.BeginTransaction();
+            command.Transaction = tr;
+
+            foreach (KeyValuePair<ushort, Tile> kv in tiles)
+            {
+                Tile t = kv.Value;
+
+                //Call the save function of the item/object which "uninitializes" it.
+                t.Save();
+
+                fstream.SetLength(0);
+                fstream.Seek(0, SeekOrigin.Begin);
+
+                //Do the actual serialization into the MemoryStream
+                serializer.Serialize(fstream, t);
+
+                arr = new byte[fstream.Length];
+
+                //Encode the item's ForeColor into a single integer
+                //NOTE: The "technique" used is called bit shift.
+                fore = 0;
+                back = 0;
+                if (t.ForeColor != null)
+                    fore = t.ForeColor.Red << 16 | t.ForeColor.Green << 8 | t.ForeColor.Blue;
+                if (t.BackColor != null)
+                    back = t.BackColor.Red << 16 | t.BackColor.Green << 8 | t.BackColor.Blue;
+
+                //Reset and read the MemoryStream into the byte array.
+                fstream.Seek(0, SeekOrigin.Begin);
+                fstream.Read(arr, 0, (int)fstream.Length);
+
+                //Convert the hex-encoded byte array extracted from the serialized MemoryStream
+                //into an ascii-encoded string (and remove all dashes).
+                data = BitConverter.ToString(arr).Replace("-", string.Empty);
+
+                //Prepare the actual SQL command 
+                //NOTE: Please refer to SQL documentation for detailed information.
+                command.CommandText = "INSERT INTO tiles (guid, data, fore, back) VALUES ('" + t.GUID + "', '" + data + "', " + fore + ", " + back + ")";
+                command.ExecuteNonQuery();
+                command.CommandText = "INSERT INTO tile_mapping (id, guid) VALUES ('" + kv.Key + "', '" + t.GUID + "')";
+                command.ExecuteNonQuery();
+            }
+
+            //Execute and commit SQLite command and transaction.
+            
+            tr.Commit();
+
+            //Cleanup
+            command.Dispose();
+            tr.Dispose();
+            fstream.Close();
+
+
+        }
+
+        private void loadTileDict()
+        {
+            tileDict = new Dictionary<ushort, Tile>();
+
+            Dictionary<string, ushort> tempDict = new Dictionary<string, ushort>();
+
+            string guid;
+            byte[] data;
+            int fore, back;
+
+            MemoryStream fstream = new MemoryStream();
+            BinaryFormatter deserializer = new BinaryFormatter();
+
+            SQLiteCommand command = new SQLiteCommand(dbconn);
+            SQLiteDataReader reader;
+
+            command.CommandText = "SELECT * FROM tile_mapping";
+            reader = command.ExecuteReader();
+
+            //DB Results have the following format:
+            // reader[0] = ID
+            // reader[1] = GUID
+
+            while (reader.Read())
+            {
+                tempDict.Add(Util.ByteArrayToString((byte[])reader[1]), Convert.ToUInt16(Util.ByteArrayToString((byte[])reader[0])));
+            }
+
+            //TODO: Get relevant tiles, deserialize
+            String whereClause = "";
+            string[] keys = tempDict.Keys.ToArray<string>();
+
+            for (int i = 0; i < keys.Length; i++)
+            {
+                whereClause += "guid='"+ keys[i] +"'";
+                if (i != keys.Length - 1)
+                    whereClause += " or ";
+            }
+
+            reader.Dispose();
+            reader.Close();
+
+            SQLiteDataReader reader2;
+            command.CommandText = "SELECT * FROM tiles WHERE " + whereClause;
+            reader2 = command.ExecuteReader();
+
+            //DB Results have the following format:
+            // reader[0] = GUID
+            // reader[1] = data
+            // reader[2] = fore
+            // reader[3] = back
+
+            while (reader2.Read())
+            {
+                //Get the GUID
+                guid = Util.ByteArrayToString((byte[])reader2[0]);
+
+                //Parse this pesky string of ASCII encoded bytes into an actual proper hex-encoded byte array.
+                data = Util.ConvertDBByteArray((byte[])reader2[1]);
+
+                fore = Convert.ToInt32(Util.ByteArrayToString((byte[])reader2[2]));
+                back = Convert.ToInt32(Util.ByteArrayToString((byte[])reader2[3]));
+
+                fstream.SetLength(0);
+                fstream.Seek(0, SeekOrigin.Begin);
+
+                //Write all the data from the freshly parsed byte array into the MemoryStream
+                fstream.Write(data, 0, data.Length);
+
+                //Reset the MemoryStream
+                fstream.Seek(0, SeekOrigin.Begin);
+
+                //Extract (deserialize) the tile from the MemoryStream
+                Tile t = (Tile)deserializer.Deserialize(fstream);
+
+                //And initialize the new and shining tile
+                TCODColor forecolor = null;
+                TCODColor backcolor = null;
+
+                if (fore != 0)
+                    forecolor = new TCODColor(fore >> 16, fore >> 8 & 0xFF, fore & 0xFF);
+                if (back != 0)
+                    backcolor = new TCODColor(back >> 16, back >> 8 & 0xFF, back & 0xFF);
+                t.Init(forecolor, backcolor);
+
+                //Add the initialized tile to the tileDict
+                tileDict.Add(tempDict[guid], t);
+            }
+
+            //Cleanup
+            reader2.Close();
+            reader2.Dispose();
+            fstream.Close();
+
+            //Done!
+            return;
+        }
         
         private TCODHeightMap makeHeightMap(int width, int height, uint seed)
         {
@@ -266,7 +457,7 @@ namespace ShootyShootyRL.Mapping
             inStream.Close();
         }
 
-        public Tile GetTileFromID(byte id)
+        public Tile GetTileFromID(ushort id)
         {
             return tileDict[id];
         }
@@ -345,14 +536,14 @@ namespace ShootyShootyRL.Mapping
         }
 
         
-        public byte GenerateTerrain(int x, int y, int z)
+        public ushort GenerateTerrain(int x, int y, int z)
         {
-            float[] f = { (float)x / (float)WorldMap.GLOBAL_WIDTH * 10000, (float)y / (float)WorldMap.GLOBAL_HEIGHT * 10000 };
+            float[] f = { (float)x / (float)WorldMap.GLOBAL_WIDTH * 1000, (float)y / (float)WorldMap.GLOBAL_HEIGHT * 1000 };
             return GenerateTerrain(x, y, z, getHeightMapValue(x, y, noise), ((double)noise.getSimplexTurbulence(f, 1)));
         }
         
 
-        public byte GenerateTerrain(int x, int y, int z, float hm_val, double rand)
+        public ushort GenerateTerrain(int x, int y, int z, float hm_val, double rand)
         {
             if (y == 1300)
             {
