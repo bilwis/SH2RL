@@ -5,6 +5,7 @@ using System.Text;
 using System.Diagnostics;
 using System.IO;
 using System.Data.SQLite;
+using System.Runtime.Serialization.Formatters.Binary;
 
 using libtcod;
 
@@ -261,6 +262,7 @@ namespace ShootyShootyRL
                 {
                     if (endGame)
                     {
+                        Save();
                         dbconn.Close();
                         dbconn.Dispose();
                         break;
@@ -287,10 +289,87 @@ namespace ShootyShootyRL
             path = path.Remove(0, 6);
             string newPath = System.IO.Path.Combine(path, "profiles", profile_name);
             ProfilePath = newPath;
+
+            //Initialize the database(s)
             InitDB(newPath);
 
+            facman = new FactionManager();
+            rand = new Random();
 
+            //Load the data from the save.dat
+            FileStream fstream = new FileStream(System.IO.Path.Combine(ProfilePath, "save.dat"), FileMode.Open);
+            StreamReader sreader = new StreamReader(fstream);
 
+            string pdat = "00", fdat = "00";
+            string[] temp;
+            while (!sreader.EndOfStream)
+            {
+                temp = sreader.ReadLine().Split('=');
+                switch (temp[0])
+                {
+                    case "Version":
+                        if (temp[1] != "pre1")
+                            throw new Exception("Error while loading profile: save.dat not at current version");
+                        break;
+                    case "MapSeed":
+                        if (!UInt32.TryParse(temp[1],out seed))
+                            throw new Exception("Error while loading profile: MapSeed is not a numeral.");
+                        break;
+                    case "FactionData":
+                        fdat = temp[1];
+                        break;
+                    case "PlayerData":
+                        pdat = temp[1];
+                        break;
+                }
+            }
+
+            //Deserialize player
+            Faction _fac;
+
+            byte[] data;
+
+            MemoryStream mstream = new MemoryStream();
+            BinaryFormatter deserializer = new BinaryFormatter();
+
+            data = Util.ConvertDBString(fdat);
+
+            //Write the converted byte array into the MemoryStream (and reset it to origin)
+            mstream.Write(data, 0, data.Length);
+            mstream.Seek(0, SeekOrigin.Begin);
+
+            //Deserialize the faction object itself
+            _fac = (Faction)deserializer.Deserialize(mstream);
+
+            _fac.Init(facman);
+
+            mstream.SetLength(0);
+            mstream.Seek(0, SeekOrigin.Begin);
+
+            data = Util.ConvertDBString(pdat);
+
+            //Write the converted byte array into the MemoryStream (and reset it to origin)
+            mstream.Write(data, 0, data.Length);
+            mstream.Seek(0, SeekOrigin.Begin);
+
+            //Deserialize the player
+            player = (Creature)deserializer.Deserialize(mstream);
+
+            player.Init(TCODColor.yellow, Out, _fac, new Objects.Action(ActionType.Idle, null, player, 0.0d));
+
+            //SETUP MAP AND WORLDMAP, ADD PLAYER
+            wm = new WorldMap(seed, dbconn);
+            map = new Map(player, wm, Out, facman, dbconn);
+
+            RenderLoadingScreen();
+
+            player.SetPosition(player.X, player.Y, map.DropObject(player.X, player.Y, player.Z + 1));
+            map.AddCreature(player);
+            Out.SendMessage("Profile " + ProfileName + " successfully loaded. Last played: " + File.GetLastWriteTime(Path.Combine(ProfilePath, "save.dat")) + ".");
+
+            mstream.Close();
+            sreader.Close();
+            fstream.Close();
         }
 
         public void InitNew(string profile_name, uint map_seed)
@@ -318,15 +397,6 @@ namespace ShootyShootyRL
             //human_faction.AddRelation(test_faction, FactionRelation.Hostile);
             //test_faction.AddRelation(human_faction, FactionRelation.Hostile);
 
-            root.setForegroundColor(TCODColor.grey);
-            root.setBackgroundColor(TCODColor.grey);
-            root.setBackgroundFlag(TCODBackgroundFlag.Set);
-            root.printFrame(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
-            root.setForegroundColor(TCODColor.black);
-            root.print(WINDOW_WIDTH / 2 - 9, WINDOW_HEIGHT / 2, "Map is generating...");
-            string seed_string = "Seed: " + map_seed;
-            root.print(WINDOW_WIDTH / 2 - (seed_string.Length/2), WINDOW_HEIGHT / 2 - 1, seed_string);
-            TCODConsole.flush();
             root.setBackgroundFlag(TCODBackgroundFlag.Default);
 
             player = new Player(1300, 1300, 35, "Player", "A ragged and scruffy-looking individual.", '@');
@@ -340,7 +410,8 @@ namespace ShootyShootyRL
 
             RenderLoadingScreen();
 
-            player.SetPosition(1300,1300, map.DropObject(1300, 1300, 35) +1);
+            player.SetPosition(player.X, player.Y, map.DropObject(player.X, player.Y, player.Z + 1));
+            map.AddCreature(player);
 
             //testai = new AICreature(302, 300, 15, "TEST", "TEST CREATURE PLEASE IGNORE", 'A');
             //testai.Init(TCODColor.orange, Out, test_faction, new Objects.Action(ActionType.Idle, null, testai, 0.0d), new WalkerAI(rand.Next(0, 100000000)), map);
@@ -350,8 +421,6 @@ namespace ShootyShootyRL
             //map.AddCreature(testai);
             //map.AddCreature(testai2);
 
-            map.AddCreature(player);
-
             Item test_item = new Item(1299, 1299, map.DropObject(1299, 1299, 35), "Shimmering rock", "A shining polished rock which seems to change color when you look at it.", (char)'*');
             test_item_guid = test_item.GUID;
             test_item.Init(TCODColor.red, Out);
@@ -360,22 +429,77 @@ namespace ShootyShootyRL
 
         public void Save()
         {
-            FileStream fstream = new FileStream(System.IO.Path.Combine(ProfilePath + "save.dat"), FileMode.Create);
+            FileStream fstream = new FileStream(System.IO.Path.Combine(ProfilePath,"save.dat"), FileMode.Create);
             StreamWriter swriter = new StreamWriter(fstream);
 
             swriter.WriteLine("Version=pre1");
             swriter.WriteLine("MapSeed=" + seed.ToString());
 
-            //Deserialize player
+            //Serialize player
+            byte[] arr;
+            string data;
+            Faction pfac;
 
+            MemoryStream mstream = new MemoryStream();
+            BinaryFormatter serializer = new BinaryFormatter();
 
-            //swriter.WriteLine("PlayerData=")
-            //swriter.WriteLine(
+            player.Save();
+            pfac = player.Faction;
+            pfac.Save();
+
+            //Serialize the player faction into the MemoryStream
+            serializer.Serialize(mstream, pfac);
+
+            arr = new byte[mstream.Length];
+
+            //Reset and read the stream into a byte array
+            mstream.Seek(0, SeekOrigin.Begin);
+            mstream.Read(arr, 0, (int)mstream.Length);
+
+            //Convert the hex-encoded byte array extracted from the serialized MemoryStream
+            //into an ascii-encoded string (and remove all dashes).
+            data = BitConverter.ToString(arr).Replace("-", string.Empty);
+
+            swriter.WriteLine("FactionData=" + data);
+
+            //Reset stream
+            mstream.SetLength(0);
+            mstream.Seek(0, SeekOrigin.Begin);
+
+            //Serialize the player into the MemoryStream
+            serializer.Serialize(mstream, player);
+
+            arr = new byte[mstream.Length];
+
+            //Reset and read the stream into a byte array
+            mstream.Seek(0, SeekOrigin.Begin);
+            mstream.Read(arr, 0, (int)mstream.Length);
+
+            //Convert the hex-encoded byte array extracted from the serialized MemoryStream
+            //into an ascii-encoded string (and remove all dashes).
+            data = BitConverter.ToString(arr).Replace("-", string.Empty);
+
+            swriter.WriteLine("PlayerData=" + data);
+
+            //Close, Cleanup
+            mstream.Close();
+            swriter.Close();
+            fstream.Close();
         }
 
         private void RenderLoadingScreen()
         {
             TCODSystem.setFps(5);
+
+            root.setForegroundColor(TCODColor.grey);
+            root.setBackgroundColor(TCODColor.grey);
+            root.setBackgroundFlag(TCODBackgroundFlag.Set);
+            root.printFrame(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
+            root.setForegroundColor(TCODColor.black);
+            root.print(WINDOW_WIDTH / 2 - 9, WINDOW_HEIGHT / 2, "Map is generating...");
+
+            string seed_string = "Seed: " + seed;
+            root.print(WINDOW_WIDTH / 2 - (seed_string.Length / 2), WINDOW_HEIGHT / 2 - 1, seed_string);
 
             int step = 0;
             while (!map.initialized)
@@ -553,12 +677,14 @@ namespace ShootyShootyRL
             if (key.KeyCode == TCODKeyCode.F12)
             {
                 GC.Collect();
+                return true;
             }
             
 
             if (key.KeyCode == TCODKeyCode.Escape)
             {
                 endGame = true;
+                return true;
             }
             if (key.KeyCode != TCODKeyCode.NoKey)
             {

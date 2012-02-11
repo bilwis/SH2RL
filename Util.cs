@@ -101,6 +101,18 @@ namespace ShootyShootyRL
             return data;
         }
 
+        public static byte[] ConvertDBString(string str)
+        {
+            byte[] data = new byte[str.Length / 2];
+
+            for (int n = 0; n < str.Length / 2; n++)
+            {
+                data[n] = byte.Parse(str.Substring(n * 2, 2), System.Globalization.NumberStyles.HexNumber);
+            }
+
+            return data;
+        }
+
         public static string GetStringFromUser(string prompt, int x, int y, TCODConsole con)
         {
             string temp = "";
