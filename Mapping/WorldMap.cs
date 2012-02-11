@@ -32,9 +32,9 @@ namespace ShootyShootyRL.Mapping
         public int Width, Height, Depth;
         public int CellsX, CellsY, CellsZ;
 
-        public static int CELL_WIDTH = 300;
-        public static int CELL_HEIGHT = 300;
-        public static int CELL_DEPTH = 30;
+        public static int CELL_WIDTH = 200;
+        public static int CELL_HEIGHT = 200;
+        public static int CELL_DEPTH = 20;
 
         public static int CELLS_X = 10;
         public static int CELLS_Y = 10;
@@ -59,16 +59,16 @@ namespace ShootyShootyRL.Mapping
 
         Dictionary<ushort, Tile> tileDict;
 
+        uint seed = 133337;
         TCODRandom rand;
         TCODNoise noise;
 
-        public String MapFile;
         SQLiteConnection dbconn;
 
-        public WorldMap(String mapFile, SQLiteConnection dbconn)
+        public WorldMap(uint seed, SQLiteConnection dbconn)
         {
-            MapFile = mapFile;
             this.dbconn = dbconn;
+            this.seed = seed;
             makeTestSetup();
         }
 
@@ -80,8 +80,6 @@ namespace ShootyShootyRL.Mapping
             CellsX = WorldMap.CELLS_X;
             CellsY = WorldMap.CELLS_Y;
             CellsZ = WorldMap.CELLS_Z;
-
-            uint hm_seed = 133337;
 
             //Create Cells
             cells = new Cell[CellsX, CellsY, CellsZ];
@@ -157,7 +155,7 @@ namespace ShootyShootyRL.Mapping
             */  
             //All other stuff
             
-            rand = new TCODRandom(hm_seed, TCODRandomType.ComplementaryMultiplyWithCarry);
+            rand = new TCODRandom(seed, TCODRandomType.ComplementaryMultiplyWithCarry);
             noise = new TCODNoise(2, rand);
 
             /*
@@ -485,32 +483,6 @@ namespace ShootyShootyRL.Mapping
             float z = noise.getSimplexNoise(f);
             
             return (((float)WorldMap.HEIGHTMAP_NORMALIZER_HIGH - (float)WorldMap.HEIGHTMAP_NORMALIZER_LOW) * ((z+1.0f)/2.0f)) + (float)WorldMap.HEIGHTMAP_NORMALIZER_LOW;
-        }
-
-        public void CompressMapFile()
-        {
-            FileStream inStream = new FileStream(MapFile, FileMode.Open);
-            FileStream outStream = new FileStream(MapFile + ".gz", FileMode.Create);
-            GZipStream compressor = new GZipStream(outStream, CompressionMode.Compress);
-
-            inStream.CopyTo(compressor);
-
-            compressor.Close();
-            outStream.Close();
-            inStream.Close();
-        }
-
-        public void DecompressMapFile()
-        {
-            FileStream inStream = new FileStream(MapFile + ".gz", FileMode.Open);
-            FileStream outStream = new FileStream(MapFile, FileMode.Create);
-            GZipStream decompressor = new GZipStream(inStream, CompressionMode.Decompress);
-
-            decompressor.CopyTo(outStream);
-
-            decompressor.Close();
-            outStream.Close();
-            inStream.Close();
         }
 
         public Tile GetTileFromID(ushort id)

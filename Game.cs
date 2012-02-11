@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Diagnostics;
-
+using System.IO;
 using System.Data.SQLite;
 
 using libtcod;
@@ -53,6 +53,7 @@ namespace ShootyShootyRL
         Creature player;
         AICreature testai;
         WorldMap wm;
+        uint seed;
         Map map;
         FactionManager facman;
 
@@ -64,6 +65,8 @@ namespace ShootyShootyRL
 
         public MessageHandler Out;
 
+        public String ProfileName;
+        public String ProfilePath;
 
         //DEBUG VARS
         string test_item_guid;
@@ -86,13 +89,149 @@ namespace ShootyShootyRL
 
         private int menu()
         {
-            Console.WriteLine("(N)ew Map, (L)oad Map, e(X)it ?");
-            ConsoleKeyInfo key = Console.ReadKey();
+            //TODO: Do a proper menu system, this is just atrocious
 
-            if (key.Key == ConsoleKey.N)
-                return 0;
-            if (key.Key == ConsoleKey.L)
-                return 1;
+            TCODSystem.setFps(10);
+            int selected = 0;
+            bool enter = false;
+            TCODKey key;
+            List<string> profiles = new List<string>();
+
+            //Retrieve profile folders
+            string[] temp;
+            string path = Path.GetDirectoryName(System.Reflection.Assembly.GetAssembly(typeof(Game)).CodeBase);
+            path = path.Remove(0, 6);
+            path = System.IO.Path.Combine(path, "profiles");
+
+            profiles = Directory.EnumerateDirectories(path).ToList<string>();
+            for (int j = 0; j < profiles.Count; j++)
+            {
+                temp = profiles[j].Split('\\');
+                profiles[j] = temp[temp.Length-1];
+            }
+
+            root.setForegroundColor(TCODColor.darkerLime);
+            root.printFrame(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
+
+            root.setBackgroundFlag(TCODBackgroundFlag.Set);
+
+            root.setForegroundColor(TCODColor.lightestHan);
+            root.setBackgroundColor(TCODColor.darkestHan);
+            root.print(WINDOW_WIDTH / 2 - 16, 10, "ShootyShootyRoguelike (pre-alpha)");
+            root.setBackgroundColor(TCODColor.black);
+            root.print(WINDOW_WIDTH / 2 - 17, 11, "created by Clemens Curio ('bilwis')");
+            root.print(WINDOW_WIDTH / 2 - 4, 12, "10022012");
+
+            while (true)
+            {
+                root.setForegroundColor(TCODColor.white);
+                root.setBackgroundColor(TCODColor.black);
+
+                if (selected == 0)
+                    root.setBackgroundColor(TCODColor.sepia);
+                root.print(WINDOW_WIDTH / 2 - 5, WINDOW_HEIGHT / 2 - 1, "New Profile");
+                root.setBackgroundColor(TCODColor.black);
+
+                if (selected == 1)
+                    root.setBackgroundColor(TCODColor.sepia);
+                root.print(WINDOW_WIDTH / 2 - 5, WINDOW_HEIGHT / 2, "Load Profile");
+                root.setBackgroundColor(TCODColor.black);
+
+                if (selected == 2)
+                    root.setBackgroundColor(TCODColor.sepia);
+                root.print(WINDOW_WIDTH / 2 - 5, WINDOW_HEIGHT / 2 + 1, "Exit Game");
+                root.setBackgroundColor(TCODColor.black);
+
+                TCODConsole.flush();
+
+                key = TCODConsole.waitForKeypress(true);
+
+                if (key.KeyCode == TCODKeyCode.Up)
+                {
+                    if (selected > 0)
+                        selected--;
+                    else if (selected == 0)
+                        selected = 2;
+                }
+                if (key.KeyCode == TCODKeyCode.Down)
+                {
+                    if (selected < 2)
+                        selected++;
+                    else if (selected == 2)
+                        selected = 0;
+                }
+                if (key.KeyCode == TCODKeyCode.Enter)
+                {
+                    root.print(WINDOW_WIDTH / 2 - 5, WINDOW_HEIGHT / 2 - 1, "                ");
+                    root.print(WINDOW_WIDTH / 2 - 5, WINDOW_HEIGHT / 2, "                ");
+                    root.print(WINDOW_WIDTH / 2 - 5, WINDOW_HEIGHT / 2 + 1, "                ");
+
+                    if (selected == 2)
+                        return -1; //Exit 
+                    if (selected == 0) //New Profile
+                    {
+                        //Enter Name, continue/new
+                        ProfileName = Util.GetStringFromUser("Please enter your name: ", WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2, root);
+                        string seed_string = Util.GetStringFromUser("Please enter the map seed: ", WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2, root);
+                        if (!UInt32.TryParse(seed_string, out seed))
+                            seed = (uint)seed_string.GetHashCode();
+                        
+                        return 0;
+                    }
+
+                    if (selected == 1) //Load Profile
+                    {
+                        //Display list of profiles, choose one, continue/load
+                        profiles.Add("Back");
+                        selected = 0;
+                        while (true)
+                        {
+                            for (int i = 0; i < profiles.Count; i++)
+                            {
+                                if (selected == i)
+                                    root.setBackgroundColor(TCODColor.sepia);
+
+                                root.print((WINDOW_WIDTH / 2) - (profiles[i].Length / 2), (WINDOW_HEIGHT / 2) - (profiles.Count /2) + i, profiles[i]);
+
+                                if (selected == i)
+                                    root.setBackgroundColor(TCODColor.black);
+                            }
+
+                            TCODConsole.flush();
+
+                            key = TCODConsole.waitForKeypress(true);
+
+                            if (key.KeyCode == TCODKeyCode.Up)
+                            {
+                                if (selected > 0)
+                                    selected--;
+                                else if (selected == 0)
+                                    selected = profiles.Count -1;
+                            }
+                            if (key.KeyCode == TCODKeyCode.Down)
+                            {
+                                if (selected < profiles.Count)
+                                    selected++;
+                                if (selected == profiles.Count)
+                                    selected = 0;
+                            }
+                            if (key.KeyCode == TCODKeyCode.Enter)
+                            {
+                                if (profiles[selected] == "Back")
+                                {
+                                    root.rect(1, (WINDOW_HEIGHT / 2) - (profiles.Count / 2) -1, WINDOW_WIDTH - 2, profiles.Count + 1, true);
+                                    selected = 0;
+                                    break;
+                                }
+
+                                ProfileName = profiles[selected];
+                                return 1;
+                            }
+                        }
+
+                    }
+                }
+            }
 
             return -1;
         }
@@ -102,14 +241,15 @@ namespace ShootyShootyRL
             //Stopwatch sw = new Stopwatch();
 
             int menu_in = menu();
+            TCODSystem.setFps(60);
 
             if (menu_in == -1)
                 return;
    
             if (menu_in == 0)
-                InitNew();
+                InitNew(ProfileName, seed);
             if (menu_in == 1)
-                InitLoad();
+                InitLoad(ProfileName);
 
             Render();
 
@@ -141,24 +281,42 @@ namespace ShootyShootyRL
             }
         }
 
-        public void InitLoad()
+        public void InitLoad(string profile_name)
         {
-            throw new NotImplementedException();
+            string path = Path.GetDirectoryName(System.Reflection.Assembly.GetAssembly(typeof(Game)).CodeBase);
+            path = path.Remove(0, 6);
+            string newPath = System.IO.Path.Combine(path, "profiles", profile_name);
+            ProfilePath = newPath;
+            InitDB(newPath);
+
+
+
         }
 
-        public void InitNew()
+        public void InitNew(string profile_name, uint map_seed)
         {
-            InitDB();
+            string path = Path.GetDirectoryName(System.Reflection.Assembly.GetAssembly(typeof(Game)).CodeBase);
+            path = path.Remove(0, 6);
+            string newPath = System.IO.Path.Combine(path, "profiles", profile_name);
+            Directory.CreateDirectory(newPath);
+
+            ProfilePath = newPath;
+
+            InitDB(newPath);
             
             rand = new Random();
-            facman = new FactionManager();
-            Faction human_faction = new Faction("Humans", "The surviors of their self-made cathastrophe.");
-            Faction test_faction = new Faction("TESTFAC", "TEST FACTION PLEASE IGNORE");
-            human_faction.Init(facman);
-            test_faction.Init(facman);
 
-            human_faction.AddRelation(test_faction, FactionRelation.Hostile);
-            test_faction.AddRelation(human_faction, FactionRelation.Hostile);
+            facman = new FactionManager();
+            Faction player_faction = new Faction("Player", "The player");
+            player_faction.Init(facman);
+
+            //Faction human_faction = new Faction("Humans", "The surviors of their self-made cathastrophe.");
+            //Faction test_faction = new Faction("TESTFAC", "TEST FACTION PLEASE IGNORE");
+            //human_faction.Init(facman);
+            //test_faction.Init(facman);
+
+            //human_faction.AddRelation(test_faction, FactionRelation.Hostile);
+            //test_faction.AddRelation(human_faction, FactionRelation.Hostile);
 
             root.setForegroundColor(TCODColor.grey);
             root.setBackgroundColor(TCODColor.grey);
@@ -166,16 +324,18 @@ namespace ShootyShootyRL
             root.printFrame(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
             root.setForegroundColor(TCODColor.black);
             root.print(WINDOW_WIDTH / 2 - 9, WINDOW_HEIGHT / 2, "Map is generating...");
+            string seed_string = "Seed: " + map_seed;
+            root.print(WINDOW_WIDTH / 2 - (seed_string.Length/2), WINDOW_HEIGHT / 2 - 1, seed_string);
             TCODConsole.flush();
             root.setBackgroundFlag(TCODBackgroundFlag.Default);
 
             player = new Player(1300, 1300, 35, "Player", "A ragged and scruffy-looking individual.", '@');
-            player.Init(TCODColor.yellow, Out, human_faction, new Objects.Action(ActionType.Idle, null, player, 0.0d));
+            player.Init(TCODColor.yellow, Out, player_faction, new Objects.Action(ActionType.Idle, null, player, 0.0d));
 
             Out.SendMessage("Welcome to [insert game name here]!", Message.MESSAGE_WELCOME);
             Out.SendMessage("You wake up in a damp and shoddy shack. Or maybe a patch of dirt. Depends on the games' version.");
 
-            wm = new WorldMap("test.map", dbconn);
+            wm = new WorldMap(map_seed, dbconn);
             map = new Map(player, wm, Out, facman, dbconn);
 
             RenderLoadingScreen();
@@ -198,6 +358,21 @@ namespace ShootyShootyRL
             map.AddItem(test_item);
         }
 
+        public void Save()
+        {
+            FileStream fstream = new FileStream(System.IO.Path.Combine(ProfilePath + "save.dat"), FileMode.Create);
+            StreamWriter swriter = new StreamWriter(fstream);
+
+            swriter.WriteLine("Version=pre1");
+            swriter.WriteLine("MapSeed=" + seed.ToString());
+
+            //Deserialize player
+
+
+            //swriter.WriteLine("PlayerData=")
+            //swriter.WriteLine(
+        }
+
         private void RenderLoadingScreen()
         {
             TCODSystem.setFps(5);
@@ -206,7 +381,7 @@ namespace ShootyShootyRL
             while (!map.initialized)
             {
                 TCODConsole.checkForKeypress();
-                root.setForegroundColor(TCODColor.silver);
+                root.setForegroundColor(TCODColor.black);
                 root.setBackgroundColor(TCODColor.grey);
                 root.setBackgroundFlag(TCODBackgroundFlag.Set);
                 switch (step)
@@ -238,10 +413,10 @@ namespace ShootyShootyRL
             root.setBackgroundFlag(TCODBackgroundFlag.Default);
         }
 
-        public void InitDB()
+        public void InitDB(string path)
         {
             dbconn = new SQLiteConnection();
-            dbconn.ConnectionString = "Data Source=" + "objects.db";
+            dbconn.ConnectionString = "Data Source=" + path + "\\objects.db";
             dbconn.Open();
 
             SQLiteCommand command = new SQLiteCommand(dbconn);

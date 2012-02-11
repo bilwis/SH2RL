@@ -100,6 +100,49 @@ namespace ShootyShootyRL
 
             return data;
         }
+
+        public static string GetStringFromUser(string prompt, int x, int y, TCODConsole con)
+        {
+            string temp = "";
+            TCODKey key;
+            while (true)
+            {
+                con.print(x-prompt.Length, y, prompt);
+                con.print(x, y, temp);
+
+                TCODConsole.flush();
+
+                key = TCODConsole.waitForKeypress(true);
+                if (key.KeyCode == TCODKeyCode.Escape)
+                {
+                    con.print(x - prompt.Length, y, "                                                                         ");
+                    break;
+                }
+
+                if (key.Character.ToString() == "\0")
+                {
+                    continue;
+                }
+
+                if (key.KeyCode == TCODKeyCode.Backspace)
+                {
+                    if (temp.Length > 0)
+                        temp = temp.Remove(temp.Length - 1);
+
+                    con.print(x, y, new String(' ', temp.Length + 1));
+                    continue;
+                }
+
+                if (key.KeyCode == TCODKeyCode.Enter)
+                {
+                    con.print(x - prompt.Length, y, "                                                                         ");
+                    return temp;
+                }
+
+                temp += key.Character.ToString();
+            }
+            return null;
+        }
     }
 
 

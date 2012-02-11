@@ -39,7 +39,7 @@ namespace ShootyShootyRL.Mapping
         object cellLock = new object();
         Cell[, ,] cells;
         bool[, ,] loaded;
-        bool[, ,] load_diff;
+        bool[, ,] load_after;
 
         WorldMap wm;
         public Creature Player;
@@ -89,8 +89,8 @@ namespace ShootyShootyRL.Mapping
             loaded = new bool[3, 3, 3];
             loaded[1, 1, 1] = true;
 
-            load_diff = new bool[3, 3, 3];
-            load_diff[1, 1, 1] = true;
+            load_after = new bool[3, 3, 3];
+            load_after[1, 1, 1] = true;
 
             for (int x = -1; x < 2; x++)
             {
@@ -107,7 +107,7 @@ namespace ShootyShootyRL.Mapping
 
                             if (Program.game.MULTITHREADED_LOADING)
                             {
-                                load_diff[1 + x, 1 + y, 1 + z] = true;
+                                load_after[1 + x, 1 + y, 1 + z] = true;
 
                                 System.ComponentModel.BackgroundWorker bw = new System.ComponentModel.BackgroundWorker();
                                 bw.DoWork += new System.ComponentModel.DoWorkEventHandler(backgroundWorker_DoWork);
@@ -386,7 +386,7 @@ namespace ShootyShootyRL.Mapping
                                     continue;
 
                                 loaded[x, y, z] = false;
-                                load_diff[x, y, z] = true;
+                                load_after[x, y, z] = true;
                                 cells[x, y, z] = wm.GetAdjacentCell(shift_vect[0], shift_vect[1], shift_vect[2], tempcells[x, y, z]);
                                 if (Program.game.MULTITHREADED_LOADING)
                                 {
@@ -399,8 +399,8 @@ namespace ShootyShootyRL.Mapping
                                 else
                                 {
                                     cells[x,y ,z].Load();
+                                    loadCellContent(cells[x, y, z].CellID);
                                 }
-                                loadCellContent(cells[x, y, z].CellID);
                                 derp++;
                                 cause_load[2] = false;
                             }
@@ -431,8 +431,7 @@ namespace ShootyShootyRL.Mapping
             Console.WriteLine("Cell #" + (int)e.Result + " loaded! Stopping Thread.");
             if (checkAllLoaded())
             {
-                loadDifferences();
-                initialized = true;
+                finishCellLoading();
             }
         }
 
@@ -447,6 +446,31 @@ namespace ShootyShootyRL.Mapping
             return true;
         }
 
+        private void finishCellLoading()
+        {
+            loadDifferences();
+            loadNewCellContent();
+            load_after = new bool[3, 3, 3];
+            initialized = true;
+        }
+
+        private void loadNewCellContent()
+        {
+            for (int x = 0; x < 3; x++)
+            {
+                for (int y = 0; y < 3; y++)
+                {
+                    for (int z = 0; z < 3; z++)
+                    {
+                        if (load_after[x, y, z])
+                        {
+                            loadCellContent(cells[x, y, z].CellID);
+                        }
+                    }
+                }
+            }
+        }
+
         private void loadDifferences()
         {
             List<int> cell_diff = new List<int>();
@@ -459,7 +483,7 @@ namespace ShootyShootyRL.Mapping
                 {
                     for (int z = 0; z < 3; z++)
                     {
-                        if (load_diff[x, y, z])
+                        if (load_after[x, y, z])
                         {
                             cell_diff.Add(cells[x, y, z].CellID);
                             cell_dict.Add(cells[x, y, z].CellID, cells[x, y, z]);
@@ -501,7 +525,7 @@ namespace ShootyShootyRL.Mapping
             reader.Close();
             reader.Dispose();
             command.Dispose();
-            load_diff = new bool[3, 3, 3];
+            //load_after = new bool[3, 3, 3];
         }
 
         /// <summary>
