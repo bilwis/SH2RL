@@ -76,28 +76,39 @@ namespace ShootyShootyRL.Mapping
         /// <returns>A byte representing a tile ID.</returns>
         public ushort GetTileID(int abs_x, int abs_y, int abs_z)
         {
-            if (abs_x < X || abs_x > X + WorldMap.CELL_WIDTH ||
-                abs_y < Y || abs_y > Y + WorldMap.CELL_HEIGHT ||
-                abs_z < Z || abs_z > Z + WorldMap.CELL_DEPTH)
+            if (abs_x < X || abs_x > X + world.CELL_WIDTH ||
+                abs_y < Y || abs_y > Y + world.CELL_HEIGHT ||
+                abs_z < Z || abs_z > Z + world.CELL_DEPTH)
                 throw new Exception("Error while trying to retrieve Tile ID from Cell: The given coordinates are not within the called cell object.");
 
             return tileMap[abs_x - X, abs_y - Y, abs_z - Z];
         }
 
+        /// <summary>
+        /// This function sets the tilemap at the given coordinates to the given tile id.
+        /// </summary>
         public void SetTile(int abs_x, int abs_y, int abs_z, ushort tile)
         {
+            if (abs_x < X || abs_x > X + world.CELL_WIDTH ||
+                abs_y < Y || abs_y > Y + world.CELL_HEIGHT ||
+                abs_z < Z || abs_z > Z + world.CELL_DEPTH)
+                throw new Exception("Error while trying to set Tile at " + abs_x + ", " + abs_y + ", " + abs_z + ". Not in called Cell.");
+
             tileMap[abs_x - X, abs_y - Y, abs_z - Z] = tile;
         }
         
+        /// <summary>
+        /// This function generates the tilemap for this cell.
+        /// </summary>
         public bool Load()
         {
-            tileMap = new ushort[WorldMap.CELL_WIDTH, WorldMap.CELL_HEIGHT, WorldMap.CELL_DEPTH];
+            tileMap = new ushort[world.CELL_WIDTH, world.CELL_HEIGHT, world.CELL_DEPTH];
 
-            for (int x = 0; x < WorldMap.CELL_WIDTH; x++)
+            for (int x = 0; x < world.CELL_WIDTH; x++)
             {
-                for (int y = 0; y < WorldMap.CELL_HEIGHT; y++)
+                for (int y = 0; y < world.CELL_HEIGHT; y++)
                 {
-                    for (int z = 0; z < WorldMap.CELL_DEPTH; z++)
+                    for (int z = 0; z < world.CELL_DEPTH; z++)
                     {
                         tileMap[x, y, z] = world.GenerateTerrain(X + x, Y + y, Z + z);
                     }
@@ -106,7 +117,6 @@ namespace ShootyShootyRL.Mapping
 
             return true;
         }
-
 
         /// <summary>
         /// Unloads the cells tile array and calls the garbage collector.

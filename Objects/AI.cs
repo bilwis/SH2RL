@@ -24,6 +24,9 @@ using ShootyShootyRL.Mapping;
 
 namespace ShootyShootyRL.Objects
 {
+    /// <summary>
+    /// Represents a state that the AI may enter, such as "Idling" or "Attacking".
+    /// </summary>
     [Serializable()]
     public enum AIState
     {
@@ -35,6 +38,9 @@ namespace ShootyShootyRL.Objects
         Uninitialized = 5
     }
 
+    /// <summary>
+    /// Represents the result of an AI evaluation, that is Neutral, Friendly, Self etc.
+    /// </summary>
     [Serializable()]
     public enum AIEvalResult
     {
@@ -45,6 +51,9 @@ namespace ShootyShootyRL.Objects
         Self = 4
     }
 
+    /// <summary>
+    /// This class represents a generic AI construct, defining the basic functions and properties.
+    /// </summary>
     [Serializable()]
     public abstract class AI
     {
@@ -67,6 +76,9 @@ namespace ShootyShootyRL.Objects
 
     }
 
+    /// <summary>
+    /// This class represents a simple AI, which walks around and attacks enemies with little thought.
+    /// </summary>
     [Serializable()]
     public class WalkerAI : AI
     {
@@ -81,31 +93,33 @@ namespace ShootyShootyRL.Objects
 
             observe();
 
-            //TODO: Stick non-flyers to the ground (map.getGround(int x, int y))!
-
             if (state == AIState.Idling)
             {
-                //TODO: ACTION SYSTEM 
+                int nx, ny, nz;
+
                 subject.ForeColor = TCODColor.green;
-                
-                subject.Move(subject.X + rand.Next(-1, 2), subject.Y + rand.Next(-1, 2), subject.Z, map, true);
+                nx = subject.X + rand.Next(-1, 1);
+                ny = subject.X + rand.Next(-1, 1);
+                nz = subject.Z; //map.DropObject() is called by the Move() function!
+                subject.Move(nx, ny, nz, map, true);
             }
 
             if (state == AIState.Attacking)
             {
                 Creature tar = map.CreatureList[targetID];
+                //TODO: Proper pathfinding
                 TCODLine.init(subject.X, subject.Y, tar.X, tar.Y);
                 int nx = 0, ny = 0, nz = 0;
-                TCODLine.step(ref nx, ref ny);
 
+                TCODLine.step(ref nx, ref ny);
                 if (nx == 0 || ny == 0)
                     return;
-                nz = map.DropObject(nx, ny, nz);
+
+                nz = subject.Z; //map.DropObject() is called by the Move() function!
                 if (nz == -1)
                     return;
                     
                 subject.ForeColor = TCODColor.red;
-                //subject.Move(subject.X + rand.Next(-1, 2), subject.Y + rand.Next(-1, 2), subject.Z, map);
                 subject.Move(nx, ny, nz, map, true);
             }
         }

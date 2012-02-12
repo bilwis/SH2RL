@@ -49,9 +49,9 @@ namespace ShootyShootyRL
             return Math.Sqrt(Math.Pow((double)x1 - (double)x2, 2.0d) + Math.Pow((double)y1 - (double)y2, 2.0d) + Math.Pow((double)z1 - (double)z2, 2.0d));
         }
 
-        public static void ExportHeightmapAsBitmap(TCODHeightMap map, string filename)
+        public static void ExportHeightmapAsBitmap(WorldMap wm, TCODHeightMap map, string filename)
         {
-            TCODHeightMap m2 = new TCODHeightMap(WorldMap.GLOBAL_WIDTH, WorldMap.GLOBAL_HEIGHT);
+            TCODHeightMap m2 = new TCODHeightMap(wm.GLOBAL_WIDTH, wm.GLOBAL_HEIGHT);
             m2.copy(map);
             m2.add(1.0f);
             m2.scale(128);
@@ -59,14 +59,14 @@ namespace ShootyShootyRL
             Debug.WriteLine("EXPORT A: "  + map.getValue(10, 10));
             Debug.WriteLine("EXPORT B: " + m2.getValue(10, 10));
 
-            Bitmap bmp = new Bitmap(WorldMap.GLOBAL_WIDTH, WorldMap.GLOBAL_HEIGHT);
+            Bitmap bmp = new Bitmap(wm.GLOBAL_WIDTH, wm.GLOBAL_HEIGHT);
             int val = 0;
             int argb = 0xFF;
 
 
-            for (int x = 0; x < WorldMap.GLOBAL_WIDTH; x++)
+            for (int x = 0; x < wm.GLOBAL_WIDTH; x++)
             {
-                for (int y = 0; y < WorldMap.GLOBAL_HEIGHT; y++)
+                for (int y = 0; y < wm.GLOBAL_HEIGHT; y++)
                 {
                     val = (int) m2.getValue(x, y);
                     

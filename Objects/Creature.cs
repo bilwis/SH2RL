@@ -125,7 +125,6 @@ namespace ShootyShootyRL.Objects
                     }
                     else
                         return false;
-                    break;
             }
             return false;
         }

@@ -27,26 +27,28 @@ using System.Runtime.Serialization.Formatters.Binary;
 
 namespace ShootyShootyRL.Mapping
 {
+    /// <summary>
+    /// This object holds the variables and functions for world generation.
+    /// </summary>
     public class WorldMap
     {
-        public int Width, Height, Depth;
-        public int CellsX, CellsY, CellsZ;
+        #region "Map constants"
 
-        public static int CELL_WIDTH = 200;
-        public static int CELL_HEIGHT = 200;
-        public static int CELL_DEPTH = 20;
+        public int CELL_WIDTH = 200;
+        public int CELL_HEIGHT = 200;
+        public int CELL_DEPTH = 20;
 
-        public static int CELLS_X = 10;
-        public static int CELLS_Y = 10;
-        public static int CELLS_Z = 6;
+        public int CELLS_X = 10;
+        public int CELLS_Y = 10;
+        public int CELLS_Z = 6;
 
-        public static int GLOBAL_WIDTH = CELLS_X * CELL_WIDTH;
-        public static int GLOBAL_HEIGHT = CELLS_Y * CELL_HEIGHT;
-        public static int GLOBAL_DEPTH = CELLS_Z * CELL_DEPTH;
+        public int GLOBAL_WIDTH;
+        public int GLOBAL_HEIGHT;
+        public int GLOBAL_DEPTH;
 
-        public static float HEIGHTMAP_SCALER = 1.0f;
-        public static int HEIGHTMAP_NORMALIZER_LOW = 0;
-        public static int HEIGHTMAP_NORMALIZER_HIGH = GLOBAL_DEPTH/2-3;
+        public int HEIGHTMAP_SCALER;
+        public int HEIGHTMAP_NORMALIZER_LOW;
+        public int HEIGHTMAP_NORMALIZER_HIGH;
 
         public static ushort TILE_AIR = 0;
         public static ushort TILE_DIRT = 1;
@@ -54,6 +56,8 @@ namespace ShootyShootyRL.Mapping
         public static ushort TILE_GRAVEL = 3;
         public static ushort TILE_SAND = 4;
         public static ushort TILE_WATER = 5;
+
+        #endregion
 
         Cell[, ,] cells;
 
@@ -65,33 +69,44 @@ namespace ShootyShootyRL.Mapping
 
         SQLiteConnection dbconn;
 
-        public WorldMap(uint seed, SQLiteConnection dbconn)
+        /// <summary>
+        /// Initializes a new WorldMap object, which provides cell retrieval and terrain generation functions.
+        /// </summary>
+        /// <param name="seed">The map seed.</param>
+        /// <param name="dbconn">The connection to the object database.</param>
+        /// <param name="parameters">The parameters for terrain generation.</param>
+        public WorldMap(uint seed, SQLiteConnection dbconn, int[] parameters)
         {
+            //Initialization
             this.dbconn = dbconn;
             this.seed = seed;
-            makeTestSetup();
-        }
+            rand = new TCODRandom(seed, TCODRandomType.ComplementaryMultiplyWithCarry);
+            noise = new TCODNoise(2, rand);
 
-        private void makeTestSetup()
-        {
-            Width = GLOBAL_WIDTH;
-            Height = GLOBAL_HEIGHT;
-            Depth = GLOBAL_DEPTH;
-            CellsX = WorldMap.CELLS_X;
-            CellsY = WorldMap.CELLS_Y;
-            CellsZ = WorldMap.CELLS_Z;
+            CELL_WIDTH = parameters[0];
+            CELL_HEIGHT = parameters[1];
+            CELL_DEPTH = parameters[2];
+
+            CELLS_X = parameters[3];
+            CELLS_Y = parameters[4];
+            CELLS_Z = parameters[5];
+
+            GLOBAL_WIDTH = CELLS_X * CELL_WIDTH;
+            GLOBAL_HEIGHT = CELLS_Y * CELL_HEIGHT;
+            GLOBAL_DEPTH = CELLS_Z * CELL_DEPTH;
+
+            HEIGHTMAP_SCALER = parameters[6];
+            HEIGHTMAP_NORMALIZER_LOW = parameters[7];
+            HEIGHTMAP_NORMALIZER_HIGH = parameters[8];
 
             //Create Cells
-            cells = new Cell[CellsX, CellsY, CellsZ];
+            cells = new Cell[CELLS_X, CELLS_Y, CELLS_Z];
             int id = 0;
-            for (int x = 0; x < CellsX; x++)
+            for (int x = 0; x < CELLS_X; x++)
             {
-                for (int y = 0; y < CellsY; y++)
+                for (int y = 0; y < CELLS_Y; y++)
                 {
-                    
-                    //cells[x, y, 0] = new Cell(x * CELL_WIDTH, y * CELL_HEIGHT, 0, id, this);
-                    //id++;
-                    for (int z = 0; z < CellsZ; z++)
+                    for (int z = 0; z < CELLS_Z; z++)
                     {
                         cells[x, y, z] = new Cell(x * CELL_WIDTH, y * CELL_HEIGHT, z * CELL_DEPTH, id, this);
                         id++;
@@ -103,104 +118,14 @@ namespace ShootyShootyRL.Mapping
             makeDefaultTileSetup();
             loadTileDict();
             makeTestDiffs();
-            
-            //COLOR EACH CELL RANDOMLY BY ASSIGNING A SPECIAL TILE TO EACH CELL
-            /*
-            Random ran = new Random();
-            for (int i = 0; i < CellsX*CellsY; i++)
-            {
-                libtcod.TCODColor col = new TCODColor(ran.Next(0, 255), ran.Next(0, 255), ran.Next(0, 255));
-
-                Tile Temp = new Tile("CELL " + i, "DEBUG", TCODColor.silver, col, ' ', false, false); //i.ToString().ToCharArray()[0], false, false);
-                tileDict.Add((byte)(i + 5), Temp);
-            }
-             * 
-
-            Random ran = new Random();
-            for (int i = 0; i < CellsX * CellsY * CellsZ; i++)
-            {
-                libtcod.TCODColor col = new TCODColor(ran.Next(0, 255), ran.Next(0, 255), ran.Next(0, 255));
-
-                Tile Temp = new Tile("CELL " + i, "DEBUG", TCODColor.silver, col, ' ', true, false); //i.ToString().ToCharArray()[0], false, false);
-                //Tile Temp = new Tile("CELL " + i, "DEBUG",  col, null, ',', true, false); //i.ToString().ToCharArray()[0], false, false);
-                
-                tileDict.Add((byte)(i + 5), Temp);
-            }
-            *
-             */
-             
-            //Create Data (if not existant)
-            
-            //Heightmap
-            /*
-            Stopwatch hmsw = new Stopwatch();
-            Console.Write("Generating heightmap with seed " + hm_seed + "...");
-            hmsw.Start();
-
-            TCODHeightMap map = makeHeightMap(WorldMap.GLOBAL_WIDTH, WorldMap.GLOBAL_HEIGHT, hm_seed);
-
-            hmsw.Stop();
-            Console.WriteLine("done!");
-            Console.WriteLine("Heightmap generation took " + hmsw.ElapsedMilliseconds + "ms.");
-
-            Console.Write("Exporting heightmap...");
-            hmsw.Start();
-
-            Util.ExportHeightmapAsBitmap(map, "test.bmp");
-
-            Console.WriteLine("done!");
-            Console.WriteLine("Heightmap export took " + hmsw.ElapsedMilliseconds + "ms.");
-
-            //map.normalize(HEIGHTMAP_NORMALIZER_LOW, HEIGHTMAP_NORMALIZER_HIGH);
-            */  
-            //All other stuff
-            
-            rand = new TCODRandom(seed, TCODRandomType.ComplementaryMultiplyWithCarry);
-            noise = new TCODNoise(2, rand);
-
-            /*
-            FileStream fstream = new FileStream(MapFile, FileMode.Create);
-            byte[] temp = new byte[Height * Depth];
-
-
-            float[] f = new float[2];
-
-            Stopwatch total = new Stopwatch();
-            Console.Write("Starting map data generation");
-            total.Start();
-
-            for (int x = 0; x < Width; x++)
-            {
-                temp = new byte[Height * Depth];
-                for (int y = 0; y < Height; y++)
-                {
-                    for (int z = 0; z < Depth; z++)
-                    {
-                        f[0] = (float)x / (float)WorldMap.GLOBAL_WIDTH * 10000;
-                        f[1] = (float)y / (float)WorldMap.GLOBAL_HEIGHT * 10000;
-
-                        //f[2] = (float)z / (float)WorldMap.GLOBAL_DEPTH * 10;
-                        //temp[(y * Depth) + z] = GenerateTerrain(x, y, z, map.getValue(x, y), (((double)noise.getSimplexTurbulence(f, 1))));
-
-                        temp[(y * Depth) + z] = GenerateTerrain(x, y, z, getHeightMapValue(x,y, noise), (((double)noise.getSimplexTurbulence(f, 1))));
-                        if (x == 0 && y == 0)
-                            Debug.WriteLine("z: " + z + " -  " + temp[(y * Depth) + z]);
-                    }
-                }
-                fstream.Write(temp, 0, (Height * Depth));
-                Console.Write(".");
-            }
-            Console.WriteLine("done.");
-
-            Console.WriteLine("Map data generation complete. All queries took " + total.ElapsedMilliseconds + "ms.");
-            fstream.Close();
-            fstream.Close();
-            GC.Collect();*/
-            
         }
 
+        /// <summary>
+        /// This function creates the Tiles and writes them and their mappings (ushort ID's) to DB.
+        /// </summary>
         private void makeDefaultTileSetup()
         {
+            //Setup/Construct the default tiles
             Tile Air = new Tile("Air", "You should not be seeing this. Please contact your local FBI office.", ' ', false, false);
             Tile Dirt = new Tile("Dirt", "A patch of dirt with small gravel and traces of sand.", '.', true, false);
             Tile Gravel = new Tile("Gravel", "A patch of gravel with traces of sand and dirt.", '.', true, false);
@@ -208,6 +133,7 @@ namespace ShootyShootyRL.Mapping
             Tile Stone = new Tile("Stone Wall", "A wall of stones stacked on top of each other. It doesn't look very solid.", '#', true, true);
             Tile Water = new Tile("Water", "A lake.", '~', true, false);
 
+            //Initalize the default tiles
             Air.Init(null, null);
             Dirt.Init(new libtcod.TCODColor(205, 133, 63), new libtcod.TCODColor(205, 133, 63));
             Gravel.Init(new libtcod.TCODColor(112, 128, 144), new libtcod.TCODColor(210, 180, 140));
@@ -215,6 +141,7 @@ namespace ShootyShootyRL.Mapping
             Stone.Init(libtcod.TCODColor.grey, libtcod.TCODColor.darkerGrey);
             Water.Init(libtcod.TCODColor.blue, libtcod.TCODColor.darkBlue);
 
+            //Put all the default times
             Dictionary<ushort, Tile> tiles = new Dictionary<ushort, Tile>();
             tiles.Add(TILE_AIR, Air);
             tiles.Add(TILE_DIRT, Dirt);
@@ -227,10 +154,12 @@ namespace ShootyShootyRL.Mapping
             string data;
             int fore, back;
 
+            //Set up database connection and serialization objects
             MemoryStream fstream = new MemoryStream();
             BinaryFormatter serializer = new BinaryFormatter();
             SQLiteCommand command = new SQLiteCommand(dbconn);
 
+            //Prepare DB by removing all existing tiles and resetting the tables
             command.CommandText = "DROP TABLE tiles";
             command.ExecuteNonQuery();
             command.CommandText = "DROP TABLE tile_mapping";
@@ -241,20 +170,19 @@ namespace ShootyShootyRL.Mapping
             command.CommandText = "CREATE TABLE tile_mapping (id BLOB NOT NULL PRIMARY KEY, guid BLOB NOT NULL);";
             command.ExecuteNonQuery();
 
-            //Begin a new SQLiteTransaction 
-            //NOTE: A SQL Transaction stores several SQL commands
-            //before commiting them to the database. This can save a
-            //lot of time.
+            //Begin the SQLiteTransaction
             SQLiteTransaction tr = dbconn.BeginTransaction();
             command.Transaction = tr;
 
+            //Iterate through all tiles
             foreach (KeyValuePair<ushort, Tile> kv in tiles)
             {
                 Tile t = kv.Value;
 
-                //Call the save function of the item/object which "uninitializes" it.
+                //Call the save function of the tile which "uninitializes" it.
                 t.Save();
 
+                //Reset stream
                 fstream.SetLength(0);
                 fstream.Seek(0, SeekOrigin.Begin);
 
@@ -289,23 +217,26 @@ namespace ShootyShootyRL.Mapping
             }
 
             //Execute and commit SQLite command and transaction.
-            
             tr.Commit();
 
             //Cleanup
             command.Dispose();
             tr.Dispose();
             fstream.Close();
-
-
         }
 
+        /// <summary>
+        /// This function loads the Tiles (tile definitions).
+        /// </summary>
         private void loadTileDict()
         {
+            //Initialize the tile dictionary
             tileDict = new Dictionary<ushort, Tile>();
 
+            //Initialize the temporary dictionary (which holds the tile ID <-> tile GUID links)
             Dictionary<string, ushort> tempDict = new Dictionary<string, ushort>();
 
+            //Setup vars
             string guid;
             byte[] data;
             int fore, back;
@@ -316,6 +247,7 @@ namespace ShootyShootyRL.Mapping
             SQLiteCommand command = new SQLiteCommand(dbconn);
             SQLiteDataReader reader;
 
+            //Prepare retrieval of the Tile Maps
             command.CommandText = "SELECT * FROM tile_mapping";
             reader = command.ExecuteReader();
 
@@ -328,7 +260,8 @@ namespace ShootyShootyRL.Mapping
                 tempDict.Add(Util.ByteArrayToString((byte[])reader[1]), Convert.ToUInt16(Util.ByteArrayToString((byte[])reader[0])));
             }
 
-            //TODO: Get relevant tiles, deserialize
+            //Retrieve all tiles for which the GUID was mapped to a tile ID
+            // (as loaded from tile_mapping into tempDict)
             String whereClause = "";
             string[] keys = tempDict.Keys.ToArray<string>();
 
@@ -398,8 +331,12 @@ namespace ShootyShootyRL.Mapping
             return;
         }
 
+        /// <summary>
+        /// For testing purposes, this creates some custom changes to the map.
+        /// </summary>
         private void makeTestDiffs()
         {
+            //This function creates the "steps" leading out of the bunker.
             SQLiteCommand command = new SQLiteCommand(dbconn);
             SQLiteTransaction trans = dbconn.BeginTransaction();
             int y = 1300;
@@ -448,16 +385,16 @@ namespace ShootyShootyRL.Mapping
                 }
             }
 
+            //Cleanup
             trans.Commit();
             trans.Dispose();
             command.Dispose();
         }
         
+        [Obsolete("This method is not used anymore.")]
         private TCODHeightMap makeHeightMap(int width, int height, uint seed)
         {
             TCODHeightMap map = new TCODHeightMap(width, height);
-            TCODRandom rand = new TCODRandom(seed,TCODRandomType.ComplementaryMultiplyWithCarry);
-            TCODNoise noise = new TCODNoise(2, rand); //Provides 2D-noisegen with default RNG (Complementary-Multiply-With-Carry)
 
             float[] f = new float[2];
 
@@ -465,33 +402,50 @@ namespace ShootyShootyRL.Mapping
             {
                 for (int y = 0; y < height; y++)
                 {
-                    f[0] = (float)x / (float)WorldMap.GLOBAL_WIDTH * WorldMap.HEIGHTMAP_SCALER;
-                    f[1] = (float)y / (float)WorldMap.GLOBAL_HEIGHT * WorldMap.HEIGHTMAP_SCALER;
+                    f[0] = (float)x / (float)GLOBAL_WIDTH * HEIGHTMAP_SCALER;
+                    f[1] = (float)y / (float)GLOBAL_HEIGHT * HEIGHTMAP_SCALER;
 
                     map.setValue(x, y, noise.getSimplexNoise(f));
-                    //map.setValue(x, y, getHeightMapValue(x, y, noise));
                 }
             }
 
             return map;
         }
 
+        /// <summary>
+        /// This function returns the heightmap value for the given coordinates.
+        /// </summary>
         private float getHeightMapValue(int x, int y, TCODNoise noise)
         {
-            float[] f = { (float)x / (float)WorldMap.GLOBAL_WIDTH * (float)WorldMap.HEIGHTMAP_SCALER, (float)y / (float)WorldMap.GLOBAL_HEIGHT * (float)WorldMap.HEIGHTMAP_SCALER };
-
+            //Construct the float array for the noise gen
+            float[] f = { (float)x / (float)GLOBAL_WIDTH * (float)HEIGHTMAP_SCALER, (float)y / (float)GLOBAL_HEIGHT * (float)HEIGHTMAP_SCALER };
+            
+            //Calculate the heightmap z value
             float z = noise.getSimplexNoise(f);
             
-            return (((float)WorldMap.HEIGHTMAP_NORMALIZER_HIGH - (float)WorldMap.HEIGHTMAP_NORMALIZER_LOW) * ((z+1.0f)/2.0f)) + (float)WorldMap.HEIGHTMAP_NORMALIZER_LOW;
+            //Normalize it and return
+            return (((float)HEIGHTMAP_NORMALIZER_HIGH - (float)HEIGHTMAP_NORMALIZER_LOW) * ((z+1.0f)/2.0f)) + (float)HEIGHTMAP_NORMALIZER_LOW;
         }
 
+        /// <summary>
+        /// This function returns the Tile Object linked to the ushort ID.
+        /// </summary>
         public Tile GetTileFromID(ushort id)
         {
             return tileDict[id];
         }
 
+        /// <summary>
+        /// This function returns the cell at the given coordinates.
+        /// </summary>
         public Cell GetCellFromCoordinates(int x, int y, int z)
         {
+            //Check if given coords are within world bounds
+            if (x > GLOBAL_WIDTH || x < 0 ||
+                y > GLOBAL_HEIGHT || y < 0 ||
+                z > GLOBAL_DEPTH || z < 0)
+                return null;
+
             int rx = (x / CELL_WIDTH); //TRUNCATED!
             int ry = (y / CELL_HEIGHT);
             int rz = (z / CELL_DEPTH);
@@ -500,13 +454,26 @@ namespace ShootyShootyRL.Mapping
         }
 
         /// <summary>
+        /// This function returns the ID of the cell at the given coordinates.
+        /// </summary>
+        public int GetCellIDFromCoordinates(int x, int y, int z)
+        {
+            //Check if given coords are within world bounds
+            if (x > GLOBAL_WIDTH || x < 0 ||
+                y > GLOBAL_HEIGHT || y < 0 ||
+                z > GLOBAL_DEPTH || z < 0)
+                return -1;
+
+            int rx = (x / CELL_WIDTH); //TRUNCATED!
+            int ry = (y / CELL_HEIGHT);
+            int rz = (z / CELL_DEPTH);
+
+            return cells[rx, ry, rz].CellID;
+        }
+
+        /// <summary>
         /// This function returns the cell at the given relative position of the given cell.
         /// </summary>
-        /// <param name="dx"></param>
-        /// <param name="dy"></param>
-        /// <param name="dz"></param>
-        /// <param name="c"></param>
-        /// <returns></returns>
         public Cell GetAdjacentCell(int dx, int dy, int dz, Cell c)
         {
             int rx = (c.X / CELL_WIDTH); //TRUNCATED!
@@ -528,50 +495,19 @@ namespace ShootyShootyRL.Mapping
             return null;
         }
 
-        public Cell GetAdjacentCell(int dx, int dy, int dz, Cell c, System.Threading.Thread t)
-        {
-            int rx = (c.X / CELL_WIDTH); //TRUNCATED!
-            int ry = (c.Y / CELL_HEIGHT);
-            int rz = (c.Z / CELL_DEPTH);
-
-            if (rx + dx >= 0 && ry + dy >= 0 && rz + dz >= 0)
-            {
-                try
-                {
-                    t.Interrupt();
-                    return cells[rx + dx, ry + dy, rz + dz];
-                }
-                catch
-                {
-                    t.Interrupt();
-                    return null;
-                }
-            }
-
-            t.Interrupt();
-            return null;
-        }
-
-        public int GetCellIDFromCoordinates(int x, int y, int z)
-        {
-            //TODO: FALSE COORDINATES HANDLING !!!
-
-            int rx = (x / CELL_WIDTH); //TRUNCATED!
-            int ry = (y / CELL_HEIGHT);
-            int rz = (z / CELL_DEPTH);
-
-            return cells[rx, ry, rz].CellID;
-        }
-
-        
+        /// <summary>
+        /// This function returns the tile ID at the given coordinates using the default heightmap and random seed.
+        /// </summary>
         public ushort GenerateTerrain(int x, int y, int z)
         {
-            float[] f = { (float)x / (float)WorldMap.GLOBAL_WIDTH * 1000, (float)y / (float)WorldMap.GLOBAL_HEIGHT * 1000 };
+            float[] f = { (float)x / (float)GLOBAL_WIDTH * 1000, (float)y / (float)GLOBAL_HEIGHT * 1000 };
             return GenerateTerrain(x, y, z, getHeightMapValue(x, y, noise), ((double)noise.getSimplexTurbulence(f, 1)));
         }
-        
 
-        public ushort GenerateTerrain(int x, int y, int z, float hm_val, double rand)
+        /// <summary>
+        /// This function returns the tile ID at the given coordinates.
+        /// </summary>
+        private ushort GenerateTerrain(int x, int y, int z, float hm_val, double rand)
         {
             /*
             if (y == 1300)
@@ -611,7 +547,6 @@ namespace ShootyShootyRL.Mapping
 
             if (z < hm_val)
             {
-                //return (byte)(GetCellIDFromCoordinates(x, y, z) + 5);
                 if (z < 10)
                     return TILE_WATER;
                 if (z < 11)
@@ -621,7 +556,6 @@ namespace ShootyShootyRL.Mapping
                 if (rand < 0.15)
                     return TILE_GRAVEL;
                 return TILE_DIRT;
-                 
             }
 
             return TILE_AIR;

@@ -301,6 +301,7 @@ namespace ShootyShootyRL
             StreamReader sreader = new StreamReader(fstream);
 
             string pdat = "00", fdat = "00";
+            int[] wm_param = new int[9];
             string[] temp;
             while (!sreader.EndOfStream)
             {
@@ -313,13 +314,49 @@ namespace ShootyShootyRL
                         break;
                     case "MapSeed":
                         if (!UInt32.TryParse(temp[1],out seed))
-                            throw new Exception("Error while loading profile: MapSeed is not a numeral.");
+                            throw new Exception("Error while loading profile: MapSeed is not a number.");
                         break;
                     case "FactionData":
                         fdat = temp[1];
                         break;
                     case "PlayerData":
                         pdat = temp[1];
+                        break;
+                    case "CellWidth":
+                        if (!Int32.TryParse(temp[1], out wm_param[0]))
+                            throw new Exception("Error while loading profile: CellWidth is not a number.");
+                        break;
+                    case "CellHeight":
+                        if (!Int32.TryParse(temp[1], out wm_param[1]))
+                            throw new Exception("Error while loading profile: CellHeight is not a number.");
+                        break;
+                    case "CellDepth":
+                        if (!Int32.TryParse(temp[1], out wm_param[2]))
+                            throw new Exception("Error while loading profile: CellDepth is not a number.");
+                        break;
+                    case "CellsX":
+                        if (!Int32.TryParse(temp[1], out wm_param[3]))
+                            throw new Exception("Error while loading profile: CellsX is not a number.");
+                        break;
+                    case "CellsY":
+                        if (!Int32.TryParse(temp[1], out wm_param[4]))
+                            throw new Exception("Error while loading profile: CellsY is not a number.");
+                        break;
+                    case "CellsZ":
+                        if (!Int32.TryParse(temp[1], out wm_param[5]))
+                            throw new Exception("Error while loading profile: CellsZ is not a number.");
+                        break;
+                    case "HeightMapScaler":
+                        if (!Int32.TryParse(temp[1], out wm_param[6]))
+                            throw new Exception("Error while loading profile: HeightMapScaler is not a number.");
+                        break;
+                    case "HeightMapNormalizerLow":
+                        if (!Int32.TryParse(temp[1], out wm_param[7]))
+                            throw new Exception("Error while loading profile: HeightMapNormalizerLow is not a number.");
+                        break;
+                    case "HeightMapNormalizerHigh":
+                        if (!Int32.TryParse(temp[1], out wm_param[8]))
+                            throw new Exception("Error while loading profile: HeightMapNormalizerHigh is not a number.");
                         break;
                 }
             }
@@ -358,7 +395,7 @@ namespace ShootyShootyRL
             player.Init(TCODColor.yellow, Out, _fac, new Objects.Action(ActionType.Idle, null, player, 0.0d));
 
             //SETUP MAP AND WORLDMAP, ADD PLAYER
-            wm = new WorldMap(seed, dbconn);
+            wm = new WorldMap(seed, dbconn, wm_param);
             map = new Map(player, wm, Out, facman, dbconn);
 
             RenderLoadingScreen();
@@ -405,7 +442,21 @@ namespace ShootyShootyRL
             Out.SendMessage("Welcome to [insert game name here]!", Message.MESSAGE_WELCOME);
             Out.SendMessage("You wake up in a damp and shoddy shack. Or maybe a patch of dirt. Depends on the games' version.");
 
-            wm = new WorldMap(map_seed, dbconn);
+            //Default map parameters
+            int[] parameters = new int[9];
+            parameters[0] = 200; //CellWidth
+            parameters[1] = 200; //CellHeight
+            parameters[2] = 20; //CellDepth
+
+            parameters[3] = 10; //CellsX
+            parameters[4] = 10; //CellsY
+            parameters[5] = 6; //CellsZ
+
+            parameters[6] = 1; //HM_Scaler
+            parameters[7] = 0; //HM_Norm_Lo
+            parameters[8] = 57; //HM_Norm_Hi
+
+            wm = new WorldMap(map_seed, dbconn, parameters);
             map = new Map(player, wm, Out, facman, dbconn);
 
             RenderLoadingScreen();
@@ -480,6 +531,17 @@ namespace ShootyShootyRL
             data = BitConverter.ToString(arr).Replace("-", string.Empty);
 
             swriter.WriteLine("PlayerData=" + data);
+
+            //Save map properties
+            swriter.WriteLine("CellWidth=" + wm.CELL_WIDTH);
+            swriter.WriteLine("CellHeight=" + wm.CELL_HEIGHT);
+            swriter.WriteLine("CellDepth=" + wm.CELL_DEPTH);
+            swriter.WriteLine("CellsX=" + wm.CELLS_X);
+            swriter.WriteLine("CellsY=" + wm.CELLS_Y);
+            swriter.WriteLine("CellsZ=" + wm.CELLS_Z);
+            swriter.WriteLine("HeightMapScaler=" + wm.HEIGHTMAP_SCALER);
+            swriter.WriteLine("HeightMapNormalizerLow=" + wm.HEIGHTMAP_NORMALIZER_LOW);
+            swriter.WriteLine("HeightMapNormalizerHigh=" + wm.HEIGHTMAP_NORMALIZER_HIGH);
 
             //Close, Cleanup
             mstream.Close();
@@ -604,42 +666,33 @@ namespace ShootyShootyRL
                 case TCODKeyCode.KeypadEight:
                     tar_y = player.Y - 1;
                     return true;
-                    break;
                 case TCODKeyCode.KeypadSix:
                     tar_x = player.X + 1;
                     return true;
-                    break;
                 case TCODKeyCode.KeypadTwo:
                     tar_y = player.Y + 1;
                     return true;
-                    break;
                 case TCODKeyCode.KeypadFour:
                     tar_x = player.X - 1;
                     return true;
-                    break;
                 case TCODKeyCode.KeypadNine:
                     tar_y = player.Y - 1;
                     tar_x = player.X + 1;
                     return true;
-                    break;
                 case TCODKeyCode.KeypadThree:
                     tar_y = player.Y + 1;
                     tar_x = player.X + 1;
                     return true;
-                    break;
                 case TCODKeyCode.KeypadOne:
                     tar_y = player.Y + 1;
                     tar_x = player.X - 1;
                     return true;
-                    break;
                 case TCODKeyCode.KeypadSeven:
                     tar_y = player.Y - 1;
                     tar_x = player.X - 1;
                     return true;
-                    break;
                 case TCODKeyCode.KeypadFive:
                     return true;
-                    break;
 
             }
 
@@ -648,11 +701,9 @@ namespace ShootyShootyRL
                 case '<':
                     tar_z = player.Z - 1;
                     return true;
-                    break;
                 case '>':
                     tar_z = player.Z + 1;
                     return true;
-                    break;
             }
 
             #endregion

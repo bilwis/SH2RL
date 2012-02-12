@@ -22,6 +22,9 @@ using libtcod;
 
 namespace ShootyShootyRL.Mapping
 {
+    /// <summary>
+    /// This objects represents a type of tile on the map.
+    /// </summary>
     [Serializable()]
     public class Tile
     {
@@ -78,6 +81,10 @@ namespace ShootyShootyRL.Mapping
 
         public void Init(TCODColor ForeColor, TCODColor BackColor)
         {
+            //NOTE: Why is the color not set in the constructor? Because the "foreign"
+            //TCODColor objects can't be serialized, so they are saved seperately
+            //and initialized after the constructor.
+
             this.ForeColor = ForeColor;
             this.BackColor = BackColor;
             initialized = true;

@@ -23,6 +23,9 @@ using ShootyShootyRL.Mapping;
 
 namespace ShootyShootyRL.Objects
 {
+    /// <summary>
+    /// Represents a type of action, e.g. Move, Attack etc.
+    /// </summary>
     public enum ActionType
     {
         Move = 0,
@@ -34,6 +37,9 @@ namespace ShootyShootyRL.Objects
         Idle = 6
     }
 
+    /// <summary>
+    /// This class represents an action that is scheduled for a creature.
+    /// </summary>
     public class Action
     {
         public ActionType Type;
@@ -41,12 +47,21 @@ namespace ShootyShootyRL.Objects
         public ActionParameters Param;
         public double Cost;
 
+
+        /// <summary>
+        /// Creates a new action for the given creature with the given parameters and cost.
+        /// </summary>
+        /// <param name="type">An ActionType enumeration entry describing the type of the action.</param>
+        /// <param name="param">An ActionParameters object.</param>
+        /// <param name="subject">The subject, which actually performs the action.</param>
+        /// <param name="cost">The cost of the action.</param>
         public Action(ActionType type, ActionParameters param, Creature subject, double cost)
         {
             this.Type = type;
             this.Subject = subject;
             this.Cost = cost;
 
+            //Check if correct parameters
             switch (Type)
             {
                 case ActionType.Move:
@@ -63,6 +78,9 @@ namespace ShootyShootyRL.Objects
     public abstract class ActionParameters
     { }
 
+    /// <summary>
+    /// This class holds all necessary parameters for a "Move" action, i.e. the target of the move and it's map.
+    /// </summary>
     public class MovementActionParameters:ActionParameters
     {
         public int Target_X;

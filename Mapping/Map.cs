@@ -59,7 +59,9 @@ namespace ShootyShootyRL.Mapping
         private FactionManager facman; 
         private SQLiteConnection dbconn;
 
-
+        /// <summary>
+        /// Initialize a new map object.
+        /// </summary>
         public Map(Creature player, WorldMap wm, MessageHandler _out, FactionManager facman, SQLiteConnection dbconn)
         {
             this.Player = player;
@@ -75,6 +77,8 @@ namespace ShootyShootyRL.Mapping
             cells = new Cell[3, 3, 3];
             centerAndLoad(player);
         }
+
+        #region "Loading and Saving"
 
         /// <summary>
         /// This function assigns the central cell to the cell in which the player currently resides and loads all surrounding
@@ -117,7 +121,7 @@ namespace ShootyShootyRL.Mapping
                             }
                             else
                             {
-                                cells[1+ x, 1+  y, 1+ z].Load();
+                                cells[1 + x, 1 + y, 1 + z].Load();
                             }
                         }
                     }
@@ -126,67 +130,12 @@ namespace ShootyShootyRL.Mapping
         }
 
         /// <summary>
-        /// This function handles the map side of player movement. It will check on the viability
-        /// of the move and, if necessary, load new Cells and dispose the old ones.
+        /// This function handles the shifting, loading and unloading of cells.
         /// </summary>
-        /// <returns>true if the movement is possible, false otherwise</returns>
-        public bool CheckPlayerMovement(int abs_x, int abs_y, int abs_z)
-        {
-
-            int cell_x = -1;
-            int cell_y = -1;
-            int cell_z = -1;
-            int[] cell_coords = new int[3];
-            int relCellID;
-
-            //Get the Cell ID of the destination cell.
-            relCellID = wm.GetCellIDFromCoordinates(abs_x, abs_y, abs_z);
-
-            //Check for movement blocking tiles or other creatures-
-            // also simulate the player dropping from the destination coordinates
-            // to ensure the cell in which he would actually end up in (seeing as
-            // he can't fly) is checked.
-            if (!IsMovementPossibleDrop(abs_x, abs_y, abs_z))
-                return false;
-
-            //Not the same cell anymore? Better load the new ones!
-            if (relCellID != currentCellId)
-            {
-                //If the map cells haven't been completely loaded/streamed yet, deny movement
-                if (!initialized)
-                    return false;
-
-                //Get coordinates of the now player-holding cell relative to the previous.
-                //NOTE: This also limits the movement. If the player is to be "teleported" to a
-                //location more than one cell's distance away, a different function must be used (TODO).
-                cell_coords = getInternalCellPosFromID(relCellID);
-                if (cell_coords == null)
-                    throw new Exception("Error while trying to move player: New cell was not found in Map Cell array!");
-
-                cell_x = cell_coords[0];
-                cell_y = cell_coords[1];
-                cell_z = cell_coords[2];
-
-                //Try and shift the cells (including loading the new ones)
-                //NOTE: This function will return false if the player tries to move into the cells on the 
-                //border of the world map. That is because it can't load all surrounding cells on the border 
-                //(seeing as some don't exist). Handling those special cases where the number of loaded cells
-                //is less than 12 seems more work than it's worth. 
-                if (loadNewCells(cell_x, cell_y, cell_z) == false)
-                    return false;
-                
-                if (Map.DEBUG_OUTPUT)
-                {
-                    _out.SendMessage("Entered cell #" + relCellID + " relative to old cell: x:" + cell_x + " y: " + cell_y + ".");
-                }
-
-                currentCellId = relCellID;
-            }
-            return true;
-        }
-
-        #region "Loading and Saving"
-
+        /// <param name="rel_x">The relative position of the new center cell (X).</param>
+        /// <param name="rel_y">The relative position of the new center cell (Y).</param>
+        /// <param name="rel_z">The relative position of the new center cell (Z).</param>
+        /// <returns>true if successful, false if not</returns>
         private bool loadNewCells(int rel_x, int rel_y, int rel_z)
         {
             //NOTE: The following code seems really complicated when you look at it (it's very "clean" and "efficient", ergo totally not human readable!)
@@ -417,6 +366,10 @@ namespace ShootyShootyRL.Mapping
             return true;
         }
 
+        /// <summary>
+        /// This function is called by the individual threads for cell loading on startup. 
+        /// The cell to be loaded must be passed as e.Argument.
+        /// </summary>
         private void backgroundWorker_DoWork(object sender, System.ComponentModel.DoWorkEventArgs e)
         {
             Cell c = (Cell)e.Argument;
@@ -424,6 +377,9 @@ namespace ShootyShootyRL.Mapping
             e.Result = c.CellID;
         }
 
+        /// <summary>
+        /// This function is called by the individual threads for cell loading after they've finished loading.
+        /// </summary>
         private void backgroundWorker_RunWorkerCompleted(object sender, System.ComponentModel.RunWorkerCompletedEventArgs e)
         {
             int[] coords = getInternalCellPosFromID((int)e.Result);
@@ -435,6 +391,9 @@ namespace ShootyShootyRL.Mapping
             }
         }
 
+        /// <summary>
+        /// This function checks if all elements in the loaded array are true and thus all cells loaded.
+        /// </summary>
         private bool checkAllLoaded()
         {
             foreach (bool b in loaded)
@@ -446,6 +405,10 @@ namespace ShootyShootyRL.Mapping
             return true;
         }
 
+        /// <summary>
+        /// This function is called at the end of the cell loading phase, when all threads
+        /// have done their work. It initiates the loading of cell content and tile differences.
+        /// </summary>
         private void finishCellLoading()
         {
             loadDifferences();
@@ -454,6 +417,9 @@ namespace ShootyShootyRL.Mapping
             initialized = true;
         }
 
+        /// <summary>
+        /// This function loads the content of all newly loaded cells.
+        /// </summary>
         private void loadNewCellContent()
         {
             for (int x = 0; x < 3; x++)
@@ -471,6 +437,9 @@ namespace ShootyShootyRL.Mapping
             }
         }
 
+        /// <summary>
+        /// This function loads the tile differences for all newly loaded cells.
+        /// </summary>
         private void loadDifferences()
         {
             List<int> cell_diff = new List<int>();
@@ -495,6 +464,7 @@ namespace ShootyShootyRL.Mapping
             String whereClause = "";
             int[] ids = cell_diff.ToArray<int>();
 
+            //Construct where clause to include all cell ids (as retrieved above)
             for (int i = 0; i < ids.Length; i++)
             {
                 whereClause += "cell_id='"+ ids[i] +"'";
@@ -502,17 +472,18 @@ namespace ShootyShootyRL.Mapping
                     whereClause += " or ";
             }
 
-            /*
-            command.CommandText = "CREATE TABLE IF NOT EXISTS diff_map (cell_id BLOB NOT NULL, abs_x BLOB, abs_y BLOB, abs_z BLOB, tile BLOB);";
-            command.ExecuteNonQuery();
-             */
-
             SQLiteCommand command = new SQLiteCommand(dbconn);
             SQLiteDataReader reader;
 
             command.CommandText = "SELECT * FROM diff_map WHERE " + whereClause;
             reader = command.ExecuteReader();
 
+            //DB Results have the following format:
+            // 0 - CellID
+            // 1,2,3 - X,Y,Z
+            // 4 - TileID
+
+            //Iterate through the DB results, write changes into cell tilemaps
             while (reader.Read())
             {
                 cell_dict[Convert.ToInt32(Util.ByteArrayToString((byte[])reader[0]))].SetTile(
@@ -522,10 +493,10 @@ namespace ShootyShootyRL.Mapping
                     Convert.ToUInt16(Util.ByteArrayToString((byte[])reader[4])));
             }
 
+            //Cleanup
             reader.Close();
             reader.Dispose();
             command.Dispose();
-            //load_after = new bool[3, 3, 3];
         }
 
         /// <summary>
@@ -996,11 +967,11 @@ namespace ShootyShootyRL.Mapping
             for (int i = 0; i < keys.Length; i++)
             {
                 Item kv = ItemList[keys[i]];
-                if (kv.X <= (c.X + WorldMap.CELL_WIDTH) && kv.X >= c.X)
+                if (kv.X <= (c.X + wm.CELL_WIDTH) && kv.X >= c.X)
                 {
-                    if (kv.Y <= (c.Y + WorldMap.CELL_HEIGHT) && kv.Y >= c.Y)
+                    if (kv.Y <= (c.Y + wm.CELL_HEIGHT) && kv.Y >= c.Y)
                     {
-                        if (kv.Z <= (c.Z + WorldMap.CELL_DEPTH) && kv.Z >= c.Z)
+                        if (kv.Z <= (c.Z + wm.CELL_DEPTH) && kv.Z >= c.Z)
                         {
                             command.CommandText = "INSERT INTO cell_contents (cell_id, content_type, content_guid) VALUES ('" + c.CellID + "', '" + (int)Util.DBLookupType.Item + "', '" + kv.GUID + "')";
                             command.ExecuteNonQuery();
@@ -1020,11 +991,11 @@ namespace ShootyShootyRL.Mapping
                 //Only save AICreatures though (only "Creature" should be the player itself)
                 if (cr.GetType() == typeof(AICreature))
                 {
-                    if (cr.X <= (c.X + WorldMap.CELL_WIDTH) && cr.X >= c.X)
+                    if (cr.X <= (c.X + wm.CELL_WIDTH) && cr.X >= c.X)
                     {
-                        if (cr.Y <= (c.Y + WorldMap.CELL_HEIGHT) && cr.Y >= c.Y)
+                        if (cr.Y <= (c.Y + wm.CELL_HEIGHT) && cr.Y >= c.Y)
                         {
-                            if (cr.Z <= (c.Z + WorldMap.CELL_DEPTH) && cr.Z >= c.Z)
+                            if (cr.Z <= (c.Z + wm.CELL_DEPTH) && cr.Z >= c.Z)
                             {
                                 command.CommandText = "INSERT INTO cell_contents (cell_id, content_type, content_guid) VALUES ('" + c.CellID + "', '" + (int)Util.DBLookupType.AICreature + "', '" + cr.GUID + "')";
                                 command.ExecuteNonQuery();
@@ -1082,6 +1053,7 @@ namespace ShootyShootyRL.Mapping
 
         #endregion
 
+        #region "Utility Functions"
 
         /// <summary>
         /// This function returns an array holding the Map-class-internal coordinates of a cell
@@ -1130,10 +1102,10 @@ namespace ShootyShootyRL.Mapping
             //Check if coordinates are within loaded map area
             if (!isCoordinateLoaded(abs_x, abs_y, abs_z))
                 return 0;
-
-            x = (int)((abs_x - cells[0, 0, 0].X) / WorldMap.CELL_WIDTH);
-            y = (int)((abs_y - cells[0, 0, 0].Y) / WorldMap.CELL_HEIGHT);
-            z = (int)((abs_z - cells[0, 0, 0].Z) / WorldMap.CELL_DEPTH);
+            
+            x = (int)((abs_x - cells[0, 0, 0].X) / wm.CELL_WIDTH);
+            y = (int)((abs_y - cells[0, 0, 0].Y) / wm.CELL_HEIGHT);
+            z = (int)((abs_z - cells[0, 0, 0].Z) / wm.CELL_DEPTH);
 
             return cells[x, y, z].GetTileID(abs_x, abs_y, abs_z);
 
@@ -1151,9 +1123,9 @@ namespace ShootyShootyRL.Mapping
             if (!isCoordinateLoaded(abs_x, abs_y, abs_z))
                 return null;
 
-            x = (int)((abs_x - cells[0, 0, 0].X) / WorldMap.CELL_WIDTH);
-            y = (int)((abs_y - cells[0, 0, 0].Y) / WorldMap.CELL_HEIGHT);
-            z = (int)((abs_z - cells[0, 0, 0].Z) / WorldMap.CELL_DEPTH);
+            x = (int)((abs_x - cells[0, 0, 0].X) / wm.CELL_WIDTH);
+            y = (int)((abs_y - cells[0, 0, 0].Y) / wm.CELL_HEIGHT);
+            z = (int)((abs_z - cells[0, 0, 0].Z) / wm.CELL_DEPTH);
 
             return cells[x, y, z].GetTile(abs_x, abs_y, abs_z);
                      
@@ -1165,22 +1137,26 @@ namespace ShootyShootyRL.Mapping
         /// <returns>True, if the coordinate point at a loaded tile, False if not.</returns>
         private bool isCoordinateLoaded(int abs_x, int abs_y, int abs_z)
         {
-            if (abs_x < cells[0, 0, 0].X || abs_x > cells[2, 0, 0].X + WorldMap.CELL_WIDTH)
+            if (abs_x < cells[0, 0, 0].X || abs_x > cells[2, 0, 0].X + wm.CELL_WIDTH)
                 return false;
-            if (abs_y < cells[0, 0, 0].Y || abs_y > cells[0, 2, 0].Y + WorldMap.CELL_HEIGHT)
+            if (abs_y < cells[0, 0, 0].Y || abs_y > cells[0, 2, 0].Y + wm.CELL_HEIGHT)
                 return false;
-            if (abs_z < cells[0, 0, 0].Z || abs_z > cells[0, 0, 2].Z + WorldMap.CELL_DEPTH)
+            if (abs_z < cells[0, 0, 0].Z || abs_z > cells[0, 0, 2].Z + wm.CELL_DEPTH)
                 return false;
 
             return true;
         }
-        
+
+        #endregion
+
+        #region "Creature Handling"
+
         [Obsolete("Use DropObject instead, this function only checks from the topmost tile")]
         public int GetGround(int abs_x, int abs_y)
         {
             string t = "Air", t2;
 
-            for (int i = cells[1, 1, 2].Z + WorldMap.CELL_DEPTH - 1; i > cells[1, 1, 0].Z; i--)
+            for (int i = cells[1, 1, 2].Z + wm.CELL_DEPTH - 1; i > cells[1, 1, 0].Z; i--)
             {
                 t2 = t;
                 t = getTileFromCells(abs_x, abs_y, i).Name;
@@ -1226,7 +1202,7 @@ namespace ShootyShootyRL.Mapping
         public bool AddCreature(Creature c)
         {
             //Check if creature is within one of the loaded cells
-            if (isCoordinateLoaded(c.X, c.Y, c.Z) == null)
+            if (isCoordinateLoaded(c.X, c.Y, c.Z) == false)
                 return false;
 
             //Add to dictionaries
@@ -1241,7 +1217,7 @@ namespace ShootyShootyRL.Mapping
         public bool AddItem(Item i)
         {
             //Check if item is within one of the loaded cells
-            if (isCoordinateLoaded(i.X, i.Y, i.Z) == null)
+            if (isCoordinateLoaded(i.X, i.Y, i.Z) == false)
                 return false;
 
             ItemList.Add(i.GUID, i);
@@ -1254,11 +1230,11 @@ namespace ShootyShootyRL.Mapping
         public bool IsMovementPossible(int abs_x, int abs_y, int abs_z)
         {
             //Check if target coordinates are within loaded cells
-            if (isCoordinateLoaded(abs_x, abs_y, abs_z) == null)
+            if (isCoordinateLoaded(abs_x, abs_y, abs_z) == false)
                 return false;
 
-            //Check wheter Tile at target location exists (this should never be reached but
-            // intercepted by the check above)
+            //Check wheter Tile at target location exists (this should never fail, 
+            // because the function above should have intercepted it)
             Tile tar = getTileFromCells(abs_x, abs_y, abs_z);
             if (tar == null)
             {
@@ -1303,6 +1279,68 @@ namespace ShootyShootyRL.Mapping
                 return false;
             return IsMovementPossible(abs_x, abs_y, z);
         }
+
+        /// <summary>
+        /// This function handles the map side of player movement. It will check on the viability
+        /// of the move and, if necessary, load new Cells and dispose the old ones.
+        /// </summary>
+        /// <returns>true if the movement is possible, false otherwise</returns>
+        public bool CheckPlayerMovement(int abs_x, int abs_y, int abs_z)
+        {
+
+            int cell_x = -1;
+            int cell_y = -1;
+            int cell_z = -1;
+            int[] cell_coords = new int[3];
+            int relCellID;
+
+            //Get the Cell ID of the destination cell.
+            relCellID = wm.GetCellIDFromCoordinates(abs_x, abs_y, abs_z);
+
+            //Check for movement blocking tiles or other creatures-
+            // also simulate the player dropping from the destination coordinates
+            // to ensure the cell in which he would actually end up in (seeing as
+            // he can't fly) is checked.
+            if (!IsMovementPossibleDrop(abs_x, abs_y, abs_z))
+                return false;
+
+            //Not the same cell anymore? Better load the new ones!
+            if (relCellID != currentCellId)
+            {
+                //If the map cells haven't been completely loaded/streamed yet, deny movement
+                if (!initialized)
+                    return false;
+
+                //Get coordinates of the now player-holding cell relative to the previous.
+                //NOTE: This also limits the movement. If the player is to be "teleported" to a
+                //location more than one cell's distance away, a different function must be used (TODO).
+                cell_coords = getInternalCellPosFromID(relCellID);
+                if (cell_coords == null)
+                    throw new Exception("Error while trying to move player: New cell was not found in Map Cell array!");
+
+                cell_x = cell_coords[0];
+                cell_y = cell_coords[1];
+                cell_z = cell_coords[2];
+
+                //Try and shift the cells (including loading the new ones)
+                //NOTE: This function will return false if the player tries to move into the cells on the 
+                //border of the world map. That is because it can't load all surrounding cells on the border 
+                //(seeing as some don't exist). Handling those special cases where the number of loaded cells
+                //is less than 12 seems more work than it's worth. 
+                if (loadNewCells(cell_x, cell_y, cell_z) == false)
+                    return false;
+
+                if (Map.DEBUG_OUTPUT)
+                {
+                    _out.SendMessage("Entered cell #" + relCellID + " relative to old cell: x:" + cell_x + " y: " + cell_y + ".");
+                }
+
+                currentCellId = relCellID;
+            }
+            return true;
+        }
+
+        #endregion
 
         public void Tick()
         {
@@ -1355,10 +1393,10 @@ namespace ShootyShootyRL.Mapping
                 top = 0;
             }
 
-            if (bottom > WorldMap.GLOBAL_HEIGHT)
+            if (bottom > wm.GLOBAL_HEIGHT)
             {
-                top -= (bottom - WorldMap.GLOBAL_HEIGHT); //ex.: bottom = 15, Globalheight = 10, Top = 5; => Top = 5 - (15-10) = 0
-                bottom = WorldMap.GLOBAL_HEIGHT;
+                top -= (bottom - wm.GLOBAL_HEIGHT); //ex.: bottom = 15, Globalheight = 10, Top = 5; => Top = 5 - (15-10) = 0
+                bottom = wm.GLOBAL_HEIGHT;
             }
 
             if (left < 0)
@@ -1367,10 +1405,10 @@ namespace ShootyShootyRL.Mapping
                 left = 0;
             }
 
-            if (right > WorldMap.GLOBAL_WIDTH)
+            if (right > wm.GLOBAL_WIDTH)
             {
-                left -= (right - WorldMap.GLOBAL_WIDTH);
-                right = WorldMap.GLOBAL_WIDTH;
+                left -= (right - wm.GLOBAL_WIDTH);
+                right = wm.GLOBAL_WIDTH;
             }
             #endregion
 
