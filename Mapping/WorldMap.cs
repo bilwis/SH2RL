@@ -46,9 +46,7 @@ namespace ShootyShootyRL.Mapping
         public int GLOBAL_HEIGHT;
         public int GLOBAL_DEPTH;
 
-        public int HEIGHTMAP_SCALER;
-        public int HEIGHTMAP_NORMALIZER_LOW;
-        public int HEIGHTMAP_NORMALIZER_HIGH;
+        public int GROUND_LEVEL = 45;
 
         public static ushort TILE_AIR = 0;
         public static ushort TILE_DIRT = 1;
@@ -56,6 +54,9 @@ namespace ShootyShootyRL.Mapping
         public static ushort TILE_GRAVEL = 3;
         public static ushort TILE_SAND = 4;
         public static ushort TILE_WATER = 5;
+        public static ushort TILE_STAIR_UP = 6;
+        public static ushort TILE_STAIR_DOWN = 7;
+        public static ushort TILE_STAIR_UP_DOWN = 8;
 
         #endregion
 
@@ -95,9 +96,7 @@ namespace ShootyShootyRL.Mapping
             GLOBAL_HEIGHT = CELLS_Y * CELL_HEIGHT;
             GLOBAL_DEPTH = CELLS_Z * CELL_DEPTH;
 
-            HEIGHTMAP_SCALER = parameters[6];
-            HEIGHTMAP_NORMALIZER_LOW = parameters[7];
-            HEIGHTMAP_NORMALIZER_HIGH = parameters[8];
+            GROUND_LEVEL = parameters[6];
 
             //Create Cells
             cells = new Cell[CELLS_X, CELLS_Y, CELLS_Z];
@@ -127,11 +126,16 @@ namespace ShootyShootyRL.Mapping
         {
             //Setup/Construct the default tiles
             Tile Air = new Tile("Air", "You should not be seeing this. Please contact your local FBI office.", ' ', false, false);
-            Tile Dirt = new Tile("Dirt", "A patch of dirt with small gravel and traces of sand.", '.', true, false);
-            Tile Gravel = new Tile("Gravel", "A patch of gravel with traces of sand and dirt.", '.', true, false);
-            Tile Sand = new Tile("Sand", "A patch of sand.", '.', true, false);
+            Tile Dirt = new Tile("Dirt", "A patch of dirt with small gravel and traces of sand.", '.', true, true);
+            Tile Gravel = new Tile("Gravel", "A patch of gravel with traces of sand and dirt.", '.', true, true);
+            Tile Sand = new Tile("Sand", "A patch of sand.", '.', true, true);
             Tile Stone = new Tile("Stone Wall", "A wall of stones stacked on top of each other. It doesn't look very solid.", '#', true, true);
-            Tile Water = new Tile("Water", "A lake.", '~', true, false);
+            Tile Water = new Tile("Water", "A lake.", '~', true, true);
+
+            Tile StairUp = new Tile("Stairs", "These stairs lead up a level.", '^', false, true);
+            Tile StairDown = new Tile("Stairs", "These stairs lead down a level.", 'v', false, true);
+            Tile StairUpDown = new Tile("Stairs", "These stairs lead up or down a level.", '/', false, true);
+
 
             //Initalize the default tiles
             Air.Init(null, null);
@@ -141,6 +145,10 @@ namespace ShootyShootyRL.Mapping
             Stone.Init(libtcod.TCODColor.grey, libtcod.TCODColor.darkerGrey);
             Water.Init(libtcod.TCODColor.blue, libtcod.TCODColor.darkBlue);
 
+            StairUp.Init(libtcod.TCODColor.lightGrey, libtcod.TCODColor.grey);
+            StairDown.Init(libtcod.TCODColor.lightGrey, libtcod.TCODColor.grey);
+            StairUpDown.Init(libtcod.TCODColor.lightGrey, libtcod.TCODColor.grey);
+
             //Put all the default times
             Dictionary<ushort, Tile> tiles = new Dictionary<ushort, Tile>();
             tiles.Add(TILE_AIR, Air);
@@ -149,6 +157,9 @@ namespace ShootyShootyRL.Mapping
             tiles.Add(TILE_SAND, Sand);
             tiles.Add(TILE_STONE_WALL, Stone);
             tiles.Add(TILE_WATER, Water);
+            tiles.Add(TILE_STAIR_UP, StairUp);
+            tiles.Add(TILE_STAIR_DOWN, StairDown);
+            tiles.Add(TILE_STAIR_UP_DOWN, StairUpDown);
 
             byte[] arr;
             string data;
@@ -345,9 +356,9 @@ namespace ShootyShootyRL.Mapping
             {
                 for (int z = 30; z < 100; z++)
                 {
-                    for (int st = 0; st < 50; st++)
+                    for (int st = 0; st < 30; st++)
                     {
-                        if (x == 1325 + st && z >= 32 + st && z < 35 + st)
+                        if (x == 1325 + st && z >= 31 + st && z < 35 + st)
                         {
                             command.CommandText = "INSERT INTO diff_map (cell_id, abs_x, abs_y, abs_z, tile) VALUES ('" +
                                 GetCellIDFromCoordinates(x, y, z) + "','" +
@@ -356,12 +367,12 @@ namespace ShootyShootyRL.Mapping
                             command.ExecuteNonQuery();
                         }
 
-                        if (x == 1325 + st && z == 31 + st)
+                        if (x == 1325 + st && z == 30 + st)
                         {
                             command.CommandText = "INSERT INTO diff_map (cell_id, abs_x, abs_y, abs_z, tile) VALUES ('" +
                                 GetCellIDFromCoordinates(x, y, z) + "','" +
                                 x + "','" + y + "','" + z + "','" +
-                                TILE_GRAVEL + "')";
+                                TILE_STAIR_UP_DOWN + "')";
                             command.ExecuteNonQuery();
                         }
                     }
@@ -390,41 +401,27 @@ namespace ShootyShootyRL.Mapping
             trans.Dispose();
             command.Dispose();
         }
-        
-        [Obsolete("This method is not used anymore.")]
-        private TCODHeightMap makeHeightMap(int width, int height, uint seed)
+
+        public Dictionary<ushort, bool> GetLOSBlockerTiles()
         {
-            TCODHeightMap map = new TCODHeightMap(width, height);
+            Dictionary<ushort, bool> temp = new Dictionary<ushort, bool>();
 
-            float[] f = new float[2];
-
-            for (int x = 0; x < width; x++)
+            foreach (KeyValuePair<ushort, Tile> kv in tileDict)
             {
-                for (int y = 0; y < height; y++)
-                {
-                    f[0] = (float)x / (float)GLOBAL_WIDTH * HEIGHTMAP_SCALER;
-                    f[1] = (float)y / (float)GLOBAL_HEIGHT * HEIGHTMAP_SCALER;
-
-                    map.setValue(x, y, noise.getSimplexNoise(f));
-                }
+                temp.Add(kv.Key, kv.Value.BlocksLOS);
             }
-
-            return map;
+            return temp;
         }
 
-        /// <summary>
-        /// This function returns the heightmap value for the given coordinates.
-        /// </summary>
-        private float getHeightMapValue(int x, int y, TCODNoise noise)
+        public Dictionary<ushort, bool> GetMoveBlockerTiles()
         {
-            //Construct the float array for the noise gen
-            float[] f = { (float)x / (float)GLOBAL_WIDTH * (float)HEIGHTMAP_SCALER, (float)y / (float)GLOBAL_HEIGHT * (float)HEIGHTMAP_SCALER };
-            
-            //Calculate the heightmap z value
-            float z = noise.getSimplexNoise(f);
-            
-            //Normalize it and return
-            return (((float)HEIGHTMAP_NORMALIZER_HIGH - (float)HEIGHTMAP_NORMALIZER_LOW) * ((z+1.0f)/2.0f)) + (float)HEIGHTMAP_NORMALIZER_LOW;
+            Dictionary<ushort, bool> temp = new Dictionary<ushort, bool>();
+
+            foreach (KeyValuePair<ushort, Tile> kv in tileDict)
+            {
+                temp.Add(kv.Key, kv.Value.BlocksMovement);
+            }
+            return temp;
         }
 
         /// <summary>
@@ -501,7 +498,7 @@ namespace ShootyShootyRL.Mapping
         public ushort GenerateTerrain(int x, int y, int z)
         {
             float[] f = { (float)x / (float)GLOBAL_WIDTH * 1000, (float)y / (float)GLOBAL_HEIGHT * 1000 };
-            return GenerateTerrain(x, y, z, getHeightMapValue(x, y, noise), ((double)noise.getSimplexTurbulence(f, 1)));
+            return GenerateTerrain(x, y, z, GROUND_LEVEL, ((double)noise.getSimplexTurbulence(f, 1)));
         }
 
         /// <summary>
@@ -509,24 +506,15 @@ namespace ShootyShootyRL.Mapping
         /// </summary>
         private ushort GenerateTerrain(int x, int y, int z, float hm_val, double rand)
         {
-            /*
-            if (y == 1300)
+            
+            if (y > 1260 && y < 1270)
             {
-                for (int st = 0; st < 50; st++)
+                if (x > 1260 && x < 1270)
                 {
-                    if (x == 1325 + st && z >= 32 + st && z < 35 + st)
-                        return TILE_AIR;
-                    if (x == 1325 + st && z == 31 + st)
-                        return TILE_GRAVEL;
+                    return TILE_STONE_WALL;
                 }
-
-                if (x > 1318 && x < 1325 && z == 31)
-                    return TILE_AIR;
-                if (x > 1318 && x < 1325 && z == 30)
-                    return TILE_GRAVEL;
-
             }
-            */
+            
 
             if (x > 1280 && x < 1320 && z < 41)
             {

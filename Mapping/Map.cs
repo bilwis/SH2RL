@@ -50,19 +50,21 @@ namespace ShootyShootyRL.Mapping
         public bool initialized = false;
 
         public static int VIEW_DISTANCE_TILES_Z = 10;
-        public static int VIEW_DISTANCE_CREATURES_DOWN_Z = 3;
-        public static int VIEW_DISTANCE_CREATURES_UP_Z = 1;
+        public static int VIEW_DISTANCE_CREATURES_DOWN_Z = 0;
+        public static int VIEW_DISTANCE_CREATURES_UP_Z = 0;
 
         private int currentCellId;
 
         private MessageHandler _out;
-        private FactionManager facman; 
+        private FactionManager facman;
         private SQLiteConnection dbconn;
+
+        private TCODMap tcod_map;
 
         /// <summary>
         /// Initialize a new map object.
         /// </summary>
-        public Map(Creature player, WorldMap wm, MessageHandler _out, FactionManager facman, SQLiteConnection dbconn)
+        public Map(Creature player, WorldMap wm, MessageHandler _out, FactionManager facman, SQLiteConnection dbconn, int vp_height, int vp_width)
         {
             this.Player = player;
             this.wm = wm;
@@ -73,6 +75,8 @@ namespace ShootyShootyRL.Mapping
             CreaturesByDistance = new Dictionary<string, double>();
             ItemList = new Dictionary<string, Item>();
             this.facman = facman;
+
+            tcod_map = new TCODMap(vp_width, vp_height);
 
             cells = new Cell[3, 3, 3];
             centerAndLoad(player);
@@ -174,15 +178,15 @@ namespace ShootyShootyRL.Mapping
             {
                 if (vect[i] == 0)
                     unload_vect[i] = 2; //If shift on the "i"-Axis is -1, or "0" in the relative coords, 
-                                        //then the cells with "i+1" must be unloaded.
+                //then the cells with "i+1" must be unloaded.
 
                 if (vect[i] == 1)
                     unload_vect[i] = -1;//If shift on the "i"-Axis is 0, or "1" in the relative coords, 
-                                        //then this axis doesn't warrant any action.
+                //then this axis doesn't warrant any action.
 
                 if (vect[i] == 2)
                     unload_vect[i] = 0; //If shift on the "i"-Axis is +1, or "2" in the relative coords, 
-                                        //then the cells with "i-1" must be unloaded.
+                //then the cells with "i-1" must be unloaded.
 
             }
 
@@ -282,7 +286,7 @@ namespace ShootyShootyRL.Mapping
 
             //Setup temporary cells array (this is needed to ensure neither loading or shifting
             // is done on cells that have already been shifted or loaded)
-            Cell[,,] tempcells = new Cell[3,3,3];
+            Cell[, ,] tempcells = new Cell[3, 3, 3];
             Array.Copy(cells, tempcells, cells.Length);
 
             //Do the shifting
@@ -318,44 +322,44 @@ namespace ShootyShootyRL.Mapping
                 {
                     cause_load[0] = true;
                 }
-                    for (int y = 0; y < 3; y++)
+                for (int y = 0; y < 3; y++)
+                {
+                    if (y == limit_vect[1])
                     {
-                        if (y == limit_vect[1])
-                        {
-                            cause_load[1] = true;
-                        }
-                            for (int z = 0; z < 3; z++)
-                            {
-                                if (z == limit_vect[2])
-                                {
-                                    cause_load[2] = true;
-                                }
-
-                                if (!cause_load[0] && !cause_load[1] && !cause_load[2])
-                                    continue;
-
-                                loaded[x, y, z] = false;
-                                load_after[x, y, z] = true;
-                                cells[x, y, z] = wm.GetAdjacentCell(shift_vect[0], shift_vect[1], shift_vect[2], tempcells[x, y, z]);
-                                if (Program.game.MULTITHREADED_LOADING)
-                                {
-                                    System.ComponentModel.BackgroundWorker bw = new System.ComponentModel.BackgroundWorker();
-                                    bw.DoWork += new System.ComponentModel.DoWorkEventHandler(backgroundWorker_DoWork);
-                                    bw.RunWorkerCompleted += new System.ComponentModel.RunWorkerCompletedEventHandler(backgroundWorker_RunWorkerCompleted);
-
-                                    bw.RunWorkerAsync(cells[ x, y, z]);
-                                }
-                                else
-                                {
-                                    cells[x,y ,z].Load();
-                                    loadCellContent(cells[x, y, z].CellID);
-                                }
-                                derp++;
-                                cause_load[2] = false;
-                            }
-                            cause_load[1] = false;
+                        cause_load[1] = true;
                     }
-                    cause_load[0] = false;
+                    for (int z = 0; z < 3; z++)
+                    {
+                        if (z == limit_vect[2])
+                        {
+                            cause_load[2] = true;
+                        }
+
+                        if (!cause_load[0] && !cause_load[1] && !cause_load[2])
+                            continue;
+
+                        loaded[x, y, z] = false;
+                        load_after[x, y, z] = true;
+                        cells[x, y, z] = wm.GetAdjacentCell(shift_vect[0], shift_vect[1], shift_vect[2], tempcells[x, y, z]);
+                        if (Program.game.MULTITHREADED_LOADING)
+                        {
+                            System.ComponentModel.BackgroundWorker bw = new System.ComponentModel.BackgroundWorker();
+                            bw.DoWork += new System.ComponentModel.DoWorkEventHandler(backgroundWorker_DoWork);
+                            bw.RunWorkerCompleted += new System.ComponentModel.RunWorkerCompletedEventHandler(backgroundWorker_RunWorkerCompleted);
+
+                            bw.RunWorkerAsync(cells[x, y, z]);
+                        }
+                        else
+                        {
+                            cells[x, y, z].Load();
+                            loadCellContent(cells[x, y, z].CellID);
+                        }
+                        derp++;
+                        cause_load[2] = false;
+                    }
+                    cause_load[1] = false;
+                }
+                cause_load[0] = false;
             }
 
             tempcells = null;
@@ -467,7 +471,7 @@ namespace ShootyShootyRL.Mapping
             //Construct where clause to include all cell ids (as retrieved above)
             for (int i = 0; i < ids.Length; i++)
             {
-                whereClause += "cell_id='"+ ids[i] +"'";
+                whereClause += "cell_id='" + ids[i] + "'";
                 if (i != ids.Length - 1)
                     whereClause += " or ";
             }
@@ -521,7 +525,7 @@ namespace ShootyShootyRL.Mapping
             //Check if an item with the given GUID is in the data base. If not, exit.
             if (!checkIsInDatabase(Util.DBLookupType.Item, guid, out reader))
                 return false;
-            
+
             //DB Results have the following format:
             // reader[0] = GUID
             // reader[1] = the data array
@@ -531,7 +535,7 @@ namespace ShootyShootyRL.Mapping
             data = Util.ConvertDBByteArray((byte[])reader[1]);
 
             color = Convert.ToInt32(Util.ByteArrayToString((byte[])reader[2]));
-            
+
             //Write all the data from the freshly parsed byte array into the MemoryStream
             fstream.Write(data, 0, data.Length);
 
@@ -618,7 +622,7 @@ namespace ShootyShootyRL.Mapping
             //Execute and commit SQLite command and transaction.
             command.ExecuteNonQuery();
             tr.Commit();
-            
+
             //Remove the saved item from the maps ItemList.
             ItemList.Remove(guid);
 
@@ -682,7 +686,7 @@ namespace ShootyShootyRL.Mapping
             //DESERIALIZE OR LOAD FACTION
             //If the faction with the GUID attached to the deserialized creature
             //is already registered in the maps faction manager, then there is no need to load it again.
-            _fac = facman.GetFaction(fac_id); 
+            _fac = facman.GetFaction(fac_id);
             if (_fac == null)
             {
                 //Clear the SQLite Reader
@@ -714,7 +718,7 @@ namespace ShootyShootyRL.Mapping
 
             //DESERIALIZE AI
             if (!checkIsInDatabase(Util.DBLookupType.AI, ai_id, out reader))
-                throw new Exception("Error while trying to load AICreature: No AI entry with guid " + ai_id + " found."); 
+                throw new Exception("Error while trying to load AICreature: No AI entry with guid " + ai_id + " found.");
 
             //DB Results have the following format:
             // reader[0] = GUID
@@ -744,7 +748,7 @@ namespace ShootyShootyRL.Mapping
 
             //Add the newly initialized AICreature to the map creature dictionaries
             AddCreature(c);
-            
+
             //CLEANUP
             reader.Dispose();
             reader.Close();
@@ -814,10 +818,10 @@ namespace ShootyShootyRL.Mapping
 
             //Prepare and execute query to insert/update creature
             if (!update)
-                command.CommandText = "INSERT INTO ai_creatures (guid, data, faction_id, ai_id, color) VALUES ('" + guid + "', '" + data + "', '" +  c.Faction.GUID + "', '" + c.AI.GUID + "', " + color + ")";
+                command.CommandText = "INSERT INTO ai_creatures (guid, data, faction_id, ai_id, color) VALUES ('" + guid + "', '" + data + "', '" + c.Faction.GUID + "', '" + c.AI.GUID + "', " + color + ")";
             if (update)
-                command.CommandText = "UPDATE ai_creatures SET data='" + data + "', faction_id='" +  c.Faction.GUID + "', ai_id='" + c.AI.GUID + "', color=" + color + " WHERE guid='" + guid + "'";
-            
+                command.CommandText = "UPDATE ai_creatures SET data='" + data + "', faction_id='" + c.Faction.GUID + "', ai_id='" + c.AI.GUID + "', color=" + color + " WHERE guid='" + guid + "'";
+
             //Execute the command
             command.ExecuteNonQuery();
 
@@ -844,7 +848,7 @@ namespace ShootyShootyRL.Mapping
 
             data = BitConverter.ToString(arr).Replace("-", string.Empty);
 
-            
+
             if (!update)
                 command.CommandText = "INSERT INTO ai (guid, data) VALUES ('" + _ai.GUID + "', '" + data + "')";
             if (update)
@@ -1098,11 +1102,11 @@ namespace ShootyShootyRL.Mapping
         private ushort getTileIDFromCells(int abs_x, int abs_y, int abs_z)
         {
             int x = 0, y = 0, z = 0;
-            
+
             //Check if coordinates are within loaded map area
             if (!isCoordinateLoaded(abs_x, abs_y, abs_z))
                 return 0;
-            
+
             x = (int)((abs_x - cells[0, 0, 0].X) / wm.CELL_WIDTH);
             y = (int)((abs_y - cells[0, 0, 0].Y) / wm.CELL_HEIGHT);
             z = (int)((abs_z - cells[0, 0, 0].Z) / wm.CELL_DEPTH);
@@ -1128,7 +1132,7 @@ namespace ShootyShootyRL.Mapping
             z = (int)((abs_z - cells[0, 0, 0].Z) / wm.CELL_DEPTH);
 
             return cells[x, y, z].GetTile(abs_x, abs_y, abs_z);
-                     
+
         }
 
         /// <summary>
@@ -1147,6 +1151,34 @@ namespace ShootyShootyRL.Mapping
             return true;
         }
 
+        private void updateTCODMap()
+        {
+            Dictionary<ushort, bool> los_blocking = new Dictionary<ushort, bool>();
+            Dictionary<ushort, bool> move_blocking = new Dictionary<ushort, bool>();
+
+            los_blocking = wm.GetLOSBlockerTiles();
+            move_blocking = wm.GetMoveBlockerTiles();
+
+            ushort curr_tile = 0;
+            int z = Player.Z;
+
+            int abs_x, abs_y;
+            abs_x = Player.X - tcod_map.getWidth()/2;
+            abs_y = Player.Y - tcod_map.getHeight()/2;
+
+            for (int x = 0; x < tcod_map.getWidth(); x++)
+            {
+                for (int y = 0; y < tcod_map.getHeight(); y++)
+                {
+                    curr_tile = getTileIDFromCells(abs_x + x, abs_y + y,z);
+                    if (curr_tile == 0)
+                        curr_tile = 0;
+                    tcod_map.setProperties(x, y, !los_blocking[curr_tile], move_blocking[curr_tile]);
+                }
+            }
+
+        }
+
         #endregion
 
         #region "Creature Handling"
@@ -1161,7 +1193,7 @@ namespace ShootyShootyRL.Mapping
                 t2 = t;
                 t = getTileFromCells(abs_x, abs_y, i).Name;
                 if (t != "Air" && t2 == "Air")
-                    return i +1;
+                    return i + 1;
             }
 
             return -1;
@@ -1183,15 +1215,13 @@ namespace ShootyShootyRL.Mapping
             //NOTE: This function returns not the z-level of the actual ground tile
             //but the z-level above (due to the way that object OCCUPY the tile they
             //are located in, they have to STAND ON TOP of the ground tile).
-            //
-            //IMPORTANT: * why curr_z+1? Creatures can negotiate z-level changes of +1!
 
-            for (int i = curr_z + 1; i > cells[1, 1, 0].Z; i--)
+            for (int i = curr_z; i > cells[1, 1, 0].Z; i--)
             {
                 t_above = t_cur;
                 t_cur = getTileFromCells(abs_x, abs_y, i).Name;
                 if (t_cur != "Air" && t_above == "Air")
-                    return i+1;
+                    return i + 1;
             }
             return -1;
         }
@@ -1359,9 +1389,12 @@ namespace ShootyShootyRL.Mapping
             {
                 i.Tick();
             }
+
+            updateTCODMap();
+
         }
 
-        public bool Render(TCODConsole con, int con_x, int con_y, int width, int height) 
+        public bool Render(TCODConsole con, int con_x, int con_y, int width, int height)
         {
             //This method is fairly convoluted because of all the intricacies of rendering ALL THE THINGS properly.
             //It could really use a makeover, but I'm not in the "OMGWTFBBQ MAJOR REWRITE UP IN THIS BIATCH" phase
@@ -1415,160 +1448,83 @@ namespace ShootyShootyRL.Mapping
             #region "Map rendering"
 
             int abs_x, abs_y, abs_z;
-            int rel_x, rel_y, rel_z;
+            int rel_x, rel_y;
             Tile t;
-            
+
             int curr_z = Player.Z;
-            int z_view_dist = Map.VIEW_DISTANCE_TILES_Z;    //"Z viewing distance" is the maximum elevation change that
-                                                            //is properly rendered out.
+            abs_z = Player.Z - 1;
+
             String displ_string = " ";
 
             //Debug vars:
             Stopwatch sw = new Stopwatch();
             int debug_prints = 0;
-            
+
             sw.Start();
             //AND THEY'RE OFF!
 
-            //Buffer all tiles in the viewport into a three dimensional byte array
-            ushort[, ,] tilearr = new ushort[right - left + 1, bottom - top + 1, (curr_z + z_view_dist) - (curr_z - z_view_dist) + 1];
+            //Buffer all tiles in the viewport into a two dimensional ushort array
+            ushort[,] tilearr = new ushort[right - left + 1, bottom - top + 1];
             for (abs_x = left; abs_x < right; abs_x++)
             {
                 for (abs_y = top; abs_y < bottom; abs_y++)
                 {
-                    for (abs_z = curr_z - z_view_dist; abs_z < curr_z + z_view_dist; abs_z++)
-                    {
-                        tilearr[abs_x - left, abs_y - top, abs_z - (curr_z - z_view_dist)] = getTileIDFromCells(abs_x, abs_y, abs_z);
-                    }
+                    tilearr[abs_x - left, abs_y - top] = getTileIDFromCells(abs_x, abs_y, abs_z);
                 }
             }
+
+            //Calculate the player's FOV
+            tcod_map.computeFov(tcod_map.getWidth() / 2, tcod_map.getHeight() / 2, tcod_map.getWidth() / 2, true, TCODFOVTypes.Permissive2Fov);
 
             //Now go through all the tiles...
             for (abs_x = left; abs_x < right; abs_x++)
             {
                 for (abs_y = top; abs_y < bottom; abs_y++)
                 {
-                    for (abs_z = curr_z - z_view_dist; abs_z < curr_z + z_view_dist; abs_z++)
+                    //...determine their relative coordinates (relative to the upper left
+                    // corner of the viewport *and the tile byte array*, that is)
+                    rel_x = abs_x - left;
+                    rel_y = abs_y - top;
+
+
+                    //Is visible?
+                    if (!tcod_map.isInFov(rel_x, rel_y))
+                    //{
+                    //    con.setForegroundColor(TCODColor.darkerBlue);
+                    //    con.setBackgroundFlag(TCODBackgroundFlag.Set);
+                    //    con.setBackgroundColor(TCODColor.darkerBlue);
+                    //    con.print(con_x + (abs_x - left), con_y + (abs_y - top), " ");
+                    //}
+                    //else
+                    //{
+                    //    con.setForegroundColor(TCODColor.lightBlue);
+                    //    con.setBackgroundFlag(TCODBackgroundFlag.Set);
+                    //    con.setBackgroundColor(TCODColor.lightBlue);
+                    //    con.print(con_x + (abs_x - left), con_y + (abs_y - top), " ");
+                    //}
+                        continue;
+
+                    //If current Tile is Air, skip ahead, because no hot rendering action is needed
+                    if (tilearr[rel_x, rel_y] == 0) //Air Tile
+                        continue;
+
+                    //Retrieve the actual tile data
+                    t = wm.GetTileFromID(tilearr[rel_x, rel_y]);
+
+                    //Prepare for render...
+                    con.setBackgroundFlag(TCODBackgroundFlag.Default);
+                    con.setForegroundColor(t.ForeColor);
+                    displ_string = t.DisplayString;
+
+
+                    if (t.BackColor != null)
                     {
-                        //...determine their relative coordinates (relative to the upper left
-                        // corner of the viewport *and the tile byte array*, that is)
-                        rel_x = abs_x - left;
-                        rel_y = abs_y - top;
-                        rel_z = abs_z - (curr_z - z_view_dist);
-
-                        //If current Tile is Air, skip ahead, because no hot rendering action is needed
-                        if (tilearr[rel_x, rel_y, rel_z] == 0) //Air Tile
-                            continue;
-
-                        //If the current Tile is NOT Air, check if Tile ABOVE current is Air
-                        // (Only then is it a candidate for rendering!)
-                        if (tilearr[rel_x, rel_y, rel_z + 1] == 0)
-                        {
-                            //Retrieve the actual tile data
-                            t = wm.GetTileFromID(tilearr[rel_x, rel_y, rel_z]);
-
-                            //Prepare for render...
-                            con.setBackgroundFlag(TCODBackgroundFlag.Default);
-                            con.setForegroundColor(t.ForeColor);
-                            displ_string = t.DisplayString;
-
-                            //...but wait!
-                            //Is iteration z-level pointing at a tile ONE BELOW the player level (curr_z)?
-                            
-                            if (abs_z == curr_z - 1)
-                            {
-                                //Yes! The tiles should be rendered normally!
-                                if (t.BackColor != null)
-                                {
-                                    con.setBackgroundColor(t.BackColor);
-                                    con.setBackgroundFlag(TCODBackgroundFlag.Set);
-                                }
-                                //DO IT!
-                                debug_prints++;
-                                con.print(con_x + (abs_x - left), con_y + (abs_y - top), displ_string);
-                                break;
-                            }
-
-                            //No... Different z-level, set colors appropriately.
-                            con.setBackgroundFlag(TCODBackgroundFlag.Set);
-                            
-                            if (abs_z < curr_z - 1)
-                            {
-                                //Tile is BELOW (one below) player level? Darken that biatch up!
-                                //NOTE: Darkening/Interpolating with black is gradual, with a tile z_view_dist tiles below player level 
-                                //being rendered completely black and a tile on player level completely normal.
-                                con.setForegroundColor(TCODColor.Interpolate(t.ForeColor, TCODColor.black, Math.Abs((abs_z-(curr_z-1))*(1.0f/z_view_dist))));
-                                if (t.BackColor != null)
-                                {
-                                    con.setBackgroundColor(TCODColor.Interpolate(t.BackColor, TCODColor.black, Math.Abs((abs_z - (curr_z - 1)) * (1.0f / z_view_dist))));
-                                }
-                                else
-                                {
-                                    //If tile doesn't have a background, fall back to black
-                                    con.setBackgroundColor(TCODColor.black);
-                                }
-                            }
-                            if (abs_z > curr_z - 1)
-                            {
-                                //Tile is ABOVE (one below) player level? Brighten that biatch up!
-                                //NOTE: Brightening/Interpolating with white is gradual, with a tile z_view_dist tiles below player level 
-                                //being rendered completely white and a tile on player level completely normal.
-                                con.setForegroundColor(TCODColor.Interpolate(t.ForeColor, TCODColor.white, Math.Abs((abs_z - (curr_z - 1)) * (1.0f / z_view_dist))));
-                                if (t.BackColor != null)
-                                {
-                                    con.setBackgroundColor(TCODColor.Interpolate(t.BackColor, TCODColor.white, Math.Abs((abs_z - (curr_z - 1)) * (1.0f / z_view_dist))));
-                                }
-                                else
-                                {
-                                    //If tile doesn't have a background, fall back to black
-                                    con.setBackgroundColor(TCODColor.black);
-                                }
-                            }
-
-                            //Check surrounding tiles, make a ramp if appropriate!
-                            //NOTE: A ramp is rendered instead of the normal foreground char for
-                            // this particular tile if one or more tiles neighboring it on the x- or y-
-                            // axis are on the player level. (IMPORTANT: This doesn't actually change the nature
-                            // of the tile, just it's display!)
-
-                            // Ramp leading DOWN a Z-Level
-                            if (abs_z == curr_z - 2)
-                            {
-                                if ((rel_x > 0 && rel_y > 0) && (rel_x < (right - left - 1) && rel_y < (bottom - top - 1)))
-                                {
-                                    if (tilearr[rel_x + 1, rel_y, rel_z + 1] != 0 ||
-                                        tilearr[rel_x - 1, rel_y, rel_z + 1] != 0 ||
-                                        tilearr[rel_x, rel_y + 1, rel_z + 1] != 0 ||
-                                        tilearr[rel_x, rel_y - 1, rel_z + 1] != 0)
-                                    {
-                                        con.setForegroundColor(t.ForeColor);
-                                        displ_string = "v";
-                                    }
-                                }
-                            }
-
-                            // Ramp leading UP a Z-Level
-                            if (abs_z == curr_z)
-                            {
-                                if ((rel_x > 0 && rel_y > 0) && (rel_x < (right - left - 1) && rel_y < (bottom - top - 1)))
-                                {
-                                    if (tilearr[rel_x + 1, rel_y, rel_z  ] == 0 ||
-                                        tilearr[rel_x - 1, rel_y, rel_z] == 0 ||
-                                        tilearr[rel_x, rel_y + 1, rel_z ] == 0 ||
-                                        tilearr[rel_x, rel_y - 1, rel_z ] == 0)
-                                    {
-                                        con.setForegroundColor(t.ForeColor);
-                                        displ_string = "^";
-                                    }
-                                }
-                            }
-
-                            //Print that tile for reals!
-                            debug_prints++;
-                            con.print(con_x + (abs_x - left), con_y + (abs_y - top), displ_string);
-                            break;
-                        }
+                        con.setBackgroundColor(t.BackColor);
+                        con.setBackgroundFlag(TCODBackgroundFlag.Set);
                     }
+                    //DO IT!
+                    debug_prints++;
+                    con.print(con_x + (abs_x - left), con_y + (abs_y - top), displ_string);
                 }
             }
             sw.Stop();
@@ -1586,24 +1542,11 @@ namespace ShootyShootyRL.Mapping
             con.print(con_x + (Player.X - left), con_y + (Player.Y - top), Player.DisplayString);
 
             //Render the creatures
-            //NOTE/TODO: Creatures are only visible in a certain range of height differences. Right now
-            // it's hardcoded, but it will probably be dynamic with the addition of a 3D raycasting algorithm!
             foreach (Creature c in CreatureList.Values)
             {
                 if (c.Z >= curr_z - Map.VIEW_DISTANCE_CREATURES_DOWN_Z && c.Z <= curr_z + Map.VIEW_DISTANCE_CREATURES_UP_Z)
                 {
-                    if (c.Z == curr_z - 1)
-                        con.setForegroundColor(c.ForeColor);
-
-                    if (c.Z < curr_z - 1)
-                    {
-                        con.setForegroundColor(TCODColor.Interpolate(c.ForeColor, TCODColor.black, Math.Abs((c.Z - (curr_z - 1)) * (1.0f / z_view_dist))));
-                    }
-                    if (c.Z > curr_z - 1)
-                    {
-                        con.setForegroundColor(TCODColor.Interpolate(c.ForeColor, TCODColor.white, Math.Abs((c.Z - (curr_z - 1)) * (1.0f / z_view_dist))));
-                    }
-
+                    con.setForegroundColor(c.ForeColor);
                     con.print(con_x + (c.X - left), con_y + (c.Y - top), c.DisplayString);
                 }
             }
@@ -1613,18 +1556,7 @@ namespace ShootyShootyRL.Mapping
             {
                 if (i.Z >= curr_z - Map.VIEW_DISTANCE_CREATURES_DOWN_Z && i.Z <= curr_z + Map.VIEW_DISTANCE_CREATURES_UP_Z)
                 {
-                    if (i.Z == curr_z - 1)
-                        con.setForegroundColor(i.ForeColor);
-
-                    if (i.Z < curr_z - 1)
-                    {
-                        con.setForegroundColor(TCODColor.Interpolate(i.ForeColor, TCODColor.black, Math.Abs((i.Z - (curr_z - 1)) * (1.0f / z_view_dist))));
-                    }
-                    if (i.Z > curr_z - 1)
-                    {
-                        con.setForegroundColor(TCODColor.Interpolate(i.ForeColor, TCODColor.white, Math.Abs((i.Z - (curr_z - 1)) * (1.0f / z_view_dist))));
-                    }
-
+                    con.setForegroundColor(i.ForeColor);
                     con.print(con_x + (i.X - left), con_y + (i.Y - top), i.DisplayString);
                 }
             }

@@ -34,6 +34,8 @@ namespace ShootyShootyRL
 
     class Game
     {
+        static string currentVersionCode = "pre2";
+
         static int WINDOW_WIDTH = 100;
         static int WINDOW_HEIGHT = 80;
         static float MAIN_TO_STATUS_RATIO = 0.8f;
@@ -252,6 +254,7 @@ namespace ShootyShootyRL
             if (menu_in == 1)
                 InitLoad(ProfileName);
 
+            Tick();
             Render();
 
             while (!endGame && !TCODConsole.isWindowClosed())
@@ -272,10 +275,18 @@ namespace ShootyShootyRL
                         player.Move(tar_x, tar_y, tar_z, map);
                     }
 
+                    Stopwatch fov_watch = new Stopwatch();
+                    fov_watch.Start();
+
                     while (player.Actions.Count != 0)
                     {
                         Tick();
                     }
+
+                    fov_watch.Stop();
+
+                    Out.SendMessage("Ticked all objects, took " + fov_watch.ElapsedMilliseconds + "ms.");
+                    
                     Render();
 
                     turn++;
@@ -301,7 +312,7 @@ namespace ShootyShootyRL
             StreamReader sreader = new StreamReader(fstream);
 
             string pdat = "00", fdat = "00";
-            int[] wm_param = new int[9];
+            int[] wm_param = new int[7];
             string[] temp;
             while (!sreader.EndOfStream)
             {
@@ -309,7 +320,7 @@ namespace ShootyShootyRL
                 switch (temp[0])
                 {
                     case "Version":
-                        if (temp[1] != "pre1")
+                        if (temp[1] != currentVersionCode)
                             throw new Exception("Error while loading profile: save.dat not at current version");
                         break;
                     case "MapSeed":
@@ -346,17 +357,9 @@ namespace ShootyShootyRL
                         if (!Int32.TryParse(temp[1], out wm_param[5]))
                             throw new Exception("Error while loading profile: CellsZ is not a number.");
                         break;
-                    case "HeightMapScaler":
+                    case "GroundLevel":
                         if (!Int32.TryParse(temp[1], out wm_param[6]))
-                            throw new Exception("Error while loading profile: HeightMapScaler is not a number.");
-                        break;
-                    case "HeightMapNormalizerLow":
-                        if (!Int32.TryParse(temp[1], out wm_param[7]))
-                            throw new Exception("Error while loading profile: HeightMapNormalizerLow is not a number.");
-                        break;
-                    case "HeightMapNormalizerHigh":
-                        if (!Int32.TryParse(temp[1], out wm_param[8]))
-                            throw new Exception("Error while loading profile: HeightMapNormalizerHigh is not a number.");
+                            throw new Exception("Error while loading profile: GroundLevel is not a number.");
                         break;
                 }
             }
@@ -396,7 +399,7 @@ namespace ShootyShootyRL
 
             //SETUP MAP AND WORLDMAP, ADD PLAYER
             wm = new WorldMap(seed, dbconn, wm_param);
-            map = new Map(player, wm, Out, facman, dbconn);
+            map = new Map(player, wm, Out, facman, dbconn,  MAIN_HEIGHT - 2, WINDOW_WIDTH - 2);
 
             RenderLoadingScreen();
 
@@ -443,7 +446,7 @@ namespace ShootyShootyRL
             Out.SendMessage("You wake up in a damp and shoddy shack. Or maybe a patch of dirt. Depends on the games' version.");
 
             //Default map parameters
-            int[] parameters = new int[9];
+            int[] parameters = new int[7];
             parameters[0] = 200; //CellWidth
             parameters[1] = 200; //CellHeight
             parameters[2] = 20; //CellDepth
@@ -452,12 +455,10 @@ namespace ShootyShootyRL
             parameters[4] = 10; //CellsY
             parameters[5] = 6; //CellsZ
 
-            parameters[6] = 1; //HM_Scaler
-            parameters[7] = 0; //HM_Norm_Lo
-            parameters[8] = 57; //HM_Norm_Hi
+            parameters[6] = 45; //GroundLevel
 
             wm = new WorldMap(map_seed, dbconn, parameters);
-            map = new Map(player, wm, Out, facman, dbconn);
+            map = new Map(player, wm, Out, facman, dbconn, MAIN_HEIGHT - 2, WINDOW_WIDTH - 2);
 
             RenderLoadingScreen();
 
@@ -483,7 +484,7 @@ namespace ShootyShootyRL
             FileStream fstream = new FileStream(System.IO.Path.Combine(ProfilePath,"save.dat"), FileMode.Create);
             StreamWriter swriter = new StreamWriter(fstream);
 
-            swriter.WriteLine("Version=pre1");
+            swriter.WriteLine("Version=" + currentVersionCode);
             swriter.WriteLine("MapSeed=" + seed.ToString());
 
             //Serialize player
@@ -539,9 +540,7 @@ namespace ShootyShootyRL
             swriter.WriteLine("CellsX=" + wm.CELLS_X);
             swriter.WriteLine("CellsY=" + wm.CELLS_Y);
             swriter.WriteLine("CellsZ=" + wm.CELLS_Z);
-            swriter.WriteLine("HeightMapScaler=" + wm.HEIGHTMAP_SCALER);
-            swriter.WriteLine("HeightMapNormalizerLow=" + wm.HEIGHTMAP_NORMALIZER_LOW);
-            swriter.WriteLine("HeightMapNormalizerHigh=" + wm.HEIGHTMAP_NORMALIZER_HIGH);
+            swriter.WriteLine("GroundLevel=" + wm.GROUND_LEVEL);
 
             //Close, Cleanup
             mstream.Close();
@@ -710,18 +709,18 @@ namespace ShootyShootyRL
 
             if (key.KeyCode == TCODKeyCode.F1)
             {
-                tar_x = 300;
-                tar_y = 300;
-                tar_z = map.DropObject(300, 300, 28);
+                tar_x = 1300;
+                tar_y = 1300;
+                tar_z = map.DropObject(1300, 1300, 49);
                 return true;
             }
             
 
             if (key.KeyCode == TCODKeyCode.F2)
             {
-                tar_x = 300;
-                tar_y = 300;
-                tar_z = map.DropObject(300, 300, 12);
+                tar_x = 1300;
+                tar_y = 1300;
+                tar_z = map.DropObject(1300, 1300, 31);
                 return true;
             }
 
@@ -749,6 +748,9 @@ namespace ShootyShootyRL
 
         public void Render()
         {
+            main.setBackgroundColor(TCODColor.black);
+            main.clear();
+
             main.setForegroundColor(TCODColor.darkerLime);
             main.printFrame(0, 0, WINDOW_WIDTH, MAIN_HEIGHT);
 
