@@ -749,6 +749,10 @@ namespace ShootyShootyRL
 
         public void Render()
         {
+            main.setBackgroundColor(TCODColor.black);
+            main.setForegroundColor(TCODColor.black);
+            main.clear();
+
             main.setForegroundColor(TCODColor.darkerLime);
             main.printFrame(0, 0, WINDOW_WIDTH, MAIN_HEIGHT);
 

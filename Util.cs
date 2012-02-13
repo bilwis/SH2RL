@@ -49,6 +49,8 @@ namespace ShootyShootyRL
             return Math.Sqrt(Math.Pow((double)x1 - (double)x2, 2.0d) + Math.Pow((double)y1 - (double)y2, 2.0d) + Math.Pow((double)z1 - (double)z2, 2.0d));
         }
 
+        
+
         public static void ExportHeightmapAsBitmap(WorldMap wm, TCODHeightMap map, string filename)
         {
             TCODHeightMap m2 = new TCODHeightMap(wm.GLOBAL_WIDTH, wm.GLOBAL_HEIGHT);

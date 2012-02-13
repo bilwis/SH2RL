@@ -127,11 +127,11 @@ namespace ShootyShootyRL.Mapping
         {
             //Setup/Construct the default tiles
             Tile Air = new Tile("Air", "You should not be seeing this. Please contact your local FBI office.", ' ', false, false);
-            Tile Dirt = new Tile("Dirt", "A patch of dirt with small gravel and traces of sand.", '.', true, false);
-            Tile Gravel = new Tile("Gravel", "A patch of gravel with traces of sand and dirt.", '.', true, false);
-            Tile Sand = new Tile("Sand", "A patch of sand.", '.', true, false);
+            Tile Dirt = new Tile("Dirt", "A patch of dirt with small gravel and traces of sand.", '.', true, true);
+            Tile Gravel = new Tile("Gravel", "A patch of gravel with traces of sand and dirt.", '.', true, true);
+            Tile Sand = new Tile("Sand", "A patch of sand.", '.', true, true);
             Tile Stone = new Tile("Stone Wall", "A wall of stones stacked on top of each other. It doesn't look very solid.", '#', true, true);
-            Tile Water = new Tile("Water", "A lake.", '~', true, false);
+            Tile Water = new Tile("Water", "A lake.", '~', true, true);
 
             //Initalize the default tiles
             Air.Init(null, null);
@@ -425,6 +425,18 @@ namespace ShootyShootyRL.Mapping
             
             //Normalize it and return
             return (((float)HEIGHTMAP_NORMALIZER_HIGH - (float)HEIGHTMAP_NORMALIZER_LOW) * ((z+1.0f)/2.0f)) + (float)HEIGHTMAP_NORMALIZER_LOW;
+            //return 45;
+        }
+
+        public Dictionary<ushort, bool> GetLOSBlockerTiles()
+        {
+            Dictionary<ushort, bool> temp = new Dictionary<ushort, bool>();
+
+            foreach (KeyValuePair<ushort, Tile> kv in tileDict)
+            {
+                temp.Add(kv.Key, kv.Value.BlocksLOS);
+            }
+            return temp;
         }
 
         /// <summary>
@@ -509,24 +521,16 @@ namespace ShootyShootyRL.Mapping
         /// </summary>
         private ushort GenerateTerrain(int x, int y, int z, float hm_val, double rand)
         {
-            /*
-            if (y == 1300)
+            if (x < 1270 && x > 1260)
             {
-                for (int st = 0; st < 50; st++)
+                if (y < 1270 && y > 1260)
                 {
-                    if (x == 1325 + st && z >= 32 + st && z < 35 + st)
-                        return TILE_AIR;
-                    if (x == 1325 + st && z == 31 + st)
-                        return TILE_GRAVEL;
+                    
+                        return TILE_STONE_WALL;
+
                 }
-
-                if (x > 1318 && x < 1325 && z == 31)
-                    return TILE_AIR;
-                if (x > 1318 && x < 1325 && z == 30)
-                    return TILE_GRAVEL;
-
             }
-            */
+            
 
             if (x > 1280 && x < 1320 && z < 41)
             {

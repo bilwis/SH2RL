@@ -1361,6 +1361,122 @@ namespace ShootyShootyRL.Mapping
             }
         }
 
+        [Obsolete("The horrible legacy of a 3D map... rest in peace")]
+        public bool[, ,] CalculateFOV(bool[, ,] blockingTiles, int[] coords, int[] size)
+        {
+            bool[, ,] visible = new bool[size[0], size[1], size[2]];
+
+            int[] startpos = coords;
+            int[] endpos = new int[3];
+            
+            int border_x_left = coords[0] - size[0]/2;
+            int border_x_right = coords[0] + size[0]/2;
+            int border_y_top = coords[1] - size[1]/2;
+            int border_y_bottom = coords[1] + size[1]/2;
+            int border_z_above = coords[2] + size[2]/2;
+            int border_z_below = coords[2] - size[2]/2;
+
+            int testcount = 0;
+
+            bool kill = false;
+
+            for (int x = border_x_left; x < border_x_right +1; x++)
+            {
+                for (int y = border_y_top; y < border_y_bottom +1; y++)
+                {
+                    for (int z = border_z_below; z < border_z_above +1; z++)
+                    {
+                        if (x == border_x_left || x == border_x_right ||
+                            y == border_y_top || y == border_y_bottom ||
+                            z == border_z_below || z == border_z_above)
+                        {
+                            testcount++;
+                            //Bresenham3D
+                            endpos[0] = x;
+                            endpos[1] = y;
+                            endpos[2] = z;
+
+                            int[] curpos = new int[3]; 
+                            int[] delta = new int[3];
+                            int[] inc = new int[3]; 
+
+                            int[] a = new int[3];
+                            int i; 
+
+                            for (i = 0; i < 3; i++) 
+                            { 
+                                curpos[i] = startpos[i]; 
+                                delta[i] = Math.Abs(endpos[i] - startpos[i]) << 1; 
+                                inc[i] = (endpos[i] > startpos[i]) ? 1 : -1; 
+                            }
+                            //if (!blockingTiles[curpos[0], curpos[1], curpos[2]])
+                                visible[curpos[0], curpos[1], curpos[2]] = true;
+
+                                if (curpos[2] - 1 > 0 && curpos[2] == startpos[2])
+                                    visible[curpos[0], curpos[1], curpos[2]-1] = true;
+                            /*else
+                            {
+                                visible[curpos[0], curpos[1], curpos[2]] = true;
+                                break;
+                            }*/
+
+                            // Find maximum delta and set a1 to that axis.. 
+                            a[0] = 0;
+                            for (i = 1; i < 3; i++)
+                            {
+                                if (delta[i] > delta[a[0]])
+                                    a[0] = i;
+                            }
+
+                            // Set up our other axes... 
+                            for (i = 1; i < 3; i++)
+                            {
+                                a[i] = a[i - 1] + 1;
+                                if (a[i] >= 3)
+                                    a[i] = 0;
+                            } 
+
+                            // Now a[0], a[1], and a[2] will have the values 0..2 
+                            // specifying each axis to step in.  a[0] is the longest 
+                            // axis so what we will step in each stage of the algorithm. 
+                            // error may go below zero 
+                            int[] error = new int[2]; 
+                            for (i = 0; i < 2; i++) 
+                                error[i] = delta[a[i+1]] - (delta[a[0]] >> 1);
+
+                            while (curpos[a[0]] != endpos[a[0]])
+                            {
+                                // Update each of our other axes coords. 
+                                for (i = 0; i < 2; i++)
+                                {
+                                    if (error[i] >= 0)
+                                    {
+                                        if (Convert.ToBoolean(error[i]) || (inc[a[i + 1]] > 0))
+                                        {
+                                            curpos[a[i + 1]] += inc[a[i + 1]];
+                                            error[i] -= delta[a[0]];
+                                        }
+                                    }
+                                    error[i] += delta[a[i + 1]];
+                                }
+                                curpos[a[0]] += inc[a[0]];
+
+                                visible[curpos[0], curpos[1], curpos[2]] = true;
+                                if (curpos[2] - 1 > 0 && curpos[2] == startpos[2])
+                                    visible[curpos[0], curpos[1], curpos[2]-1] = true;
+                                if (blockingTiles[curpos[0], curpos[1], curpos[2]])
+                                    break;
+                            }
+                        }
+                    }
+                }
+
+            }
+            Debug.Print("Checked " + testcount + " tiles.");
+            return visible;
+
+        }
+
         public bool Render(TCODConsole con, int con_x, int con_y, int width, int height) 
         {
             //This method is fairly convoluted because of all the intricacies of rendering ALL THE THINGS properly.
@@ -1443,6 +1559,31 @@ namespace ShootyShootyRL.Mapping
                 }
             }
 
+            //Calculate visible tiles
+            /*
+            bool[, ,] tileBlocksLOS = new bool[right - left + 1, bottom - top + 1, (curr_z + z_view_dist) - (curr_z - z_view_dist) + 1];
+            bool[, ,] tileVisible = new bool[right - left + 1, bottom - top + 1, (curr_z + z_view_dist) - (curr_z - z_view_dist) + 1];
+            int[] coords = { Player.X - left, Player.Y - top, Player.Z - (curr_z - z_view_dist) };
+            int[] size = { right - left + 1, bottom - top + 1, (curr_z + z_view_dist) - (curr_z - z_view_dist) + 1 };
+            Dictionary<ushort, bool> blocking = new Dictionary<ushort, bool>();
+
+            blocking = wm.GetLOSBlockerTiles();
+
+            for (abs_x = left; abs_x < right; abs_x++)
+            {
+                for (abs_y = top; abs_y < bottom; abs_y++)
+                {
+                    for (abs_z = curr_z - z_view_dist; abs_z < curr_z + z_view_dist; abs_z++)
+                    {
+                        if (blocking[tilearr[abs_x - left, abs_y - top, abs_z - (curr_z - z_view_dist)]])
+                            tileBlocksLOS[abs_x - left, abs_y - top, abs_z - (curr_z - z_view_dist)] = true;
+                    }
+                }
+            }
+
+            tileVisible = CalculateFOV(tileBlocksLOS, coords, size);
+            */
+
             //Now go through all the tiles...
             for (abs_x = left; abs_x < right; abs_x++)
             {
@@ -1455,6 +1596,10 @@ namespace ShootyShootyRL.Mapping
                         rel_x = abs_x - left;
                         rel_y = abs_y - top;
                         rel_z = abs_z - (curr_z - z_view_dist);
+
+                        //Is tile visible?
+                        //if (!tileVisible[rel_x, rel_y, rel_z])
+                        //    continue;
 
                         //If current Tile is Air, skip ahead, because no hot rendering action is needed
                         if (tilearr[rel_x, rel_y, rel_z] == 0) //Air Tile
