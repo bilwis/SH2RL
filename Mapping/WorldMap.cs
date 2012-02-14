@@ -58,6 +58,8 @@ namespace ShootyShootyRL.Mapping
         public static ushort TILE_STAIR_DOWN = 7;
         public static ushort TILE_STAIR_UP_DOWN = 8;
 
+        public static ushort TILE_STONE_FLOOR = 9;
+
         #endregion
 
         Cell[, ,] cells;
@@ -130,6 +132,7 @@ namespace ShootyShootyRL.Mapping
             Tile Gravel = new Tile("Gravel", "A patch of gravel with traces of sand and dirt.", '.', true, true);
             Tile Sand = new Tile("Sand", "A patch of sand.", '.', true, true);
             Tile Stone = new Tile("Stone Wall", "A wall of stones stacked on top of each other. It doesn't look very solid.", '#', true, true);
+            Tile StoneF = new Tile("Stone Floor", "A floor of stones.", '.', true, true);
             Tile Water = new Tile("Water", "A lake.", '~', true, true);
 
             Tile StairUp = new Tile("Stairs", "These stairs lead up a level.", '^', false, true);
@@ -143,6 +146,7 @@ namespace ShootyShootyRL.Mapping
             Gravel.Init(new libtcod.TCODColor(112, 128, 144), new libtcod.TCODColor(210, 180, 140));
             Sand.Init(new libtcod.TCODColor(238, 221, 130), new libtcod.TCODColor(238, 221, 130));
             Stone.Init(libtcod.TCODColor.grey, libtcod.TCODColor.darkerGrey);
+            StoneF.Init(libtcod.TCODColor.darkerGrey, libtcod.TCODColor.grey);
             Water.Init(libtcod.TCODColor.blue, libtcod.TCODColor.darkBlue);
 
             StairUp.Init(libtcod.TCODColor.lightGrey, libtcod.TCODColor.grey);
@@ -156,6 +160,8 @@ namespace ShootyShootyRL.Mapping
             tiles.Add(TILE_GRAVEL, Gravel);
             tiles.Add(TILE_SAND, Sand);
             tiles.Add(TILE_STONE_WALL, Stone);
+
+            tiles.Add(TILE_STONE_FLOOR, StoneF);
             tiles.Add(TILE_WATER, Water);
             tiles.Add(TILE_STAIR_UP, StairUp);
             tiles.Add(TILE_STAIR_DOWN, StairDown);
@@ -527,8 +533,10 @@ namespace ShootyShootyRL.Mapping
                     if (z < 10)
                         return TILE_GRAVEL;
                     if (z == 30 || z == 40)
-                        return TILE_STONE_WALL;
+                        return TILE_STONE_FLOOR;
 
+                    if (z == 31 & (x % 2) == 0 && (y%2) == 0 && (rand < 0.2))
+                        return TILE_STONE_WALL;
                     return TILE_AIR;
                 }
             }

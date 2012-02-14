@@ -1474,7 +1474,9 @@ namespace ShootyShootyRL.Mapping
             }
 
             //Calculate the player's FOV
-            tcod_map.computeFov(tcod_map.getWidth() / 2, tcod_map.getHeight() / 2, tcod_map.getWidth() / 2, true, TCODFOVTypes.Permissive2Fov);
+            tcod_map.computeFov(tcod_map.getWidth() / 2, tcod_map.getHeight() / 2, tcod_map.getWidth() / 2, true, TCODFOVTypes.DiamondFov);
+
+            float color_intensity = 1.0f;
 
             //Now go through all the tiles...
             for (abs_x = left; abs_x < right; abs_x++)
@@ -1486,40 +1488,38 @@ namespace ShootyShootyRL.Mapping
                     rel_x = abs_x - left;
                     rel_y = abs_y - top;
 
+                    color_intensity = 1.0f;
 
                     //Is visible?
                     if (!tcod_map.isInFov(rel_x, rel_y))
-                    //{
-                    //    con.setForegroundColor(TCODColor.darkerBlue);
-                    //    con.setBackgroundFlag(TCODBackgroundFlag.Set);
-                    //    con.setBackgroundColor(TCODColor.darkerBlue);
-                    //    con.print(con_x + (abs_x - left), con_y + (abs_y - top), " ");
-                    //}
-                    //else
-                    //{
-                    //    con.setForegroundColor(TCODColor.lightBlue);
-                    //    con.setBackgroundFlag(TCODBackgroundFlag.Set);
-                    //    con.setBackgroundColor(TCODColor.lightBlue);
-                    //    con.print(con_x + (abs_x - left), con_y + (abs_y - top), " ");
-                    //}
-                        continue;
+                    {
+                        if (wm.GetCellFromCoordinates(abs_x, abs_y, Player.Z).IsDiscovered(abs_x, abs_y, Player.Z))
+                            color_intensity = 0.4f;
+                        else
+                            color_intensity = 0.0f;
+                    }
+                    else
+                        wm.GetCellFromCoordinates(abs_x, abs_y, Player.Z).DiscoverTile(abs_x, abs_y, Player.Z);
 
                     //If current Tile is Air, skip ahead, because no hot rendering action is needed
                     if (tilearr[rel_x, rel_y] == 0) //Air Tile
                         continue;
 
                     //Retrieve the actual tile data
-                    t = wm.GetTileFromID(tilearr[rel_x, rel_y]);
+                    if (tcod_map.isTransparent(rel_x, rel_y))
+                        t = wm.GetTileFromID(tilearr[rel_x, rel_y]);
+                    else
+                        t = getTileFromCells(abs_x, abs_y, Player.Z);
 
                     //Prepare for render...
                     con.setBackgroundFlag(TCODBackgroundFlag.Default);
-                    con.setForegroundColor(t.ForeColor);
+                    con.setForegroundColor(TCODColor.Interpolate(TCODColor.black, t.ForeColor, color_intensity));
                     displ_string = t.DisplayString;
 
 
                     if (t.BackColor != null)
                     {
-                        con.setBackgroundColor(t.BackColor);
+                        con.setBackgroundColor(TCODColor.Interpolate(TCODColor.black, t.BackColor, color_intensity));
                         con.setBackgroundFlag(TCODBackgroundFlag.Set);
                     }
                     //DO IT!
