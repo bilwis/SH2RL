@@ -11,6 +11,8 @@ using libtcod;
 
 using ShootyShootyRL.Mapping;
 using ShootyShootyRL.Objects;
+using ShootyShootyRL.Systems;
+using ShootyShootyRL.Objects.Bodies;
 
 //************************************************************//
 //*                SHOOTY SHOOTY ROGUELIKE                   *//
@@ -43,6 +45,8 @@ namespace ShootyShootyRL
         static int MAIN_HEIGHT = (int)Math.Floor(WINDOW_HEIGHT * (MAIN_TO_STATUS_RATIO));
         static int STATUS_HEIGHT = (int)Math.Ceiling(WINDOW_HEIGHT * (1 - MAIN_TO_STATUS_RATIO));
 
+        static string BODY_DEF_HUMAN = "body_human.xml";
+
         public bool MULTITHREADED_LOADING = true;
 
         TCODConsole root;
@@ -74,6 +78,7 @@ namespace ShootyShootyRL
         //DEBUG VARS
         string test_item_guid;
         string testai_guid;
+        ParticleEmitter emit = new ParticleEmitter(1300,1300,30,100,0.1f,1,0.5f,0.1f,0.1f);
 
         public Game()
         {
@@ -244,7 +249,7 @@ namespace ShootyShootyRL
             //Stopwatch sw = new Stopwatch();
 
             int menu_in = menu();
-            TCODSystem.setFps(60);
+            TCODSystem.setFps(30);
 
             if (menu_in == -1)
                 return;
@@ -256,6 +261,7 @@ namespace ShootyShootyRL
 
             Tick();
             Render();
+            emit.Init(TCODColor.orange);
 
             while (!endGame && !TCODConsole.isWindowClosed())
             {
@@ -439,7 +445,7 @@ namespace ShootyShootyRL
 
             root.setBackgroundFlag(TCODBackgroundFlag.Default);
 
-            player = new Player(1300, 1300, 35, "Player", "A ragged and scruffy-looking individual.", '@');
+            player = new Player(1300, 1300, 35, "Player", "A ragged and scruffy-looking individual.", '@', new Body(BODY_DEF_HUMAN));
             player.Init(TCODColor.yellow, Out, player_faction, new Objects.Action(ActionType.Idle, null, player, 0.0d));
 
             Out.SendMessage("Welcome to [insert game name here]!", Message.MESSAGE_WELCOME);
@@ -745,6 +751,7 @@ namespace ShootyShootyRL
 
             return false;
         }
+
 
         public void Render()
         {

@@ -10,6 +10,7 @@ using System.Threading;
 using System.Runtime.Serialization.Formatters.Binary;
 
 using ShootyShootyRL.Objects;
+using ShootyShootyRL.Systems;
 
 //************************************************************//
 //*                SHOOTY SHOOTY ROGUELIKE                   *//
@@ -61,6 +62,9 @@ namespace ShootyShootyRL.Mapping
 
         private TCODMap tcod_map;
 
+        private int vp_height;
+        private int vp_width;
+
         /// <summary>
         /// Initialize a new map object.
         /// </summary>
@@ -70,16 +74,20 @@ namespace ShootyShootyRL.Mapping
             this.wm = wm;
             this._out = _out;
             this.dbconn = dbconn;
+            this.vp_height = vp_height;
+            this.vp_width = vp_width;
 
             CreatureList = new Dictionary<string, Creature>();
             CreaturesByDistance = new Dictionary<string, double>();
             ItemList = new Dictionary<string, Item>();
             this.facman = facman;
 
-            tcod_map = new TCODMap(vp_width, vp_height);
+            //tcod_map = new TCODMap(vp_width, vp_height);
+            tcod_map = new TCODMap(3 * wm.CELL_WIDTH, 3 * wm.CELL_HEIGHT);
 
             cells = new Cell[3, 3, 3];
             centerAndLoad(player);
+
         }
 
         #region "Loading and Saving"
@@ -417,6 +425,7 @@ namespace ShootyShootyRL.Mapping
         {
             loadDifferences();
             loadNewCellContent();
+            updateTCODMap();
             load_after = new bool[3, 3, 3];
             initialized = true;
         }
@@ -1163,19 +1172,31 @@ namespace ShootyShootyRL.Mapping
             int z = Player.Z;
 
             int abs_x, abs_y;
-            abs_x = Player.X - tcod_map.getWidth()/2;
-            abs_y = Player.Y - tcod_map.getHeight()/2;
+            abs_x = cells[0,0,0].X;
+            abs_y = cells[0, 0, 0].Y;
 
-            for (int x = 0; x < tcod_map.getWidth(); x++)
+            for (int x = 0; x < tcod_map.getWidth() -1; x++)
             {
-                for (int y = 0; y < tcod_map.getHeight(); y++)
+                for (int y = 0; y < tcod_map.getHeight() -1; y++)
                 {
-                    curr_tile = getTileIDFromCells(abs_x + x, abs_y + y,z);
-                    if (curr_tile == 0)
-                        curr_tile = 0;
-                    tcod_map.setProperties(x, y, !los_blocking[curr_tile], move_blocking[curr_tile]);
+                    curr_tile = getTileIDFromCells(abs_x + x, abs_y + y, z);
+                    tcod_map.setProperties(x, y, !los_blocking[curr_tile], !move_blocking[curr_tile]);
                 }
             }
+
+            //abs_x = Player.X - tcod_map.getWidth()/2;
+            //abs_y = Player.Y - tcod_map.getHeight()/2;
+
+            //for (int x = 0; x < tcod_map.getWidth(); x++)
+            //{
+            //    for (int y = 0; y < tcod_map.getHeight(); y++)
+            //    {
+            //        curr_tile = getTileIDFromCells(abs_x + x, abs_y + y,z);
+            //        if (curr_tile == 0)
+            //            curr_tile = 0;
+            //        tcod_map.setProperties(x, y, !los_blocking[curr_tile], move_blocking[curr_tile]);
+            //    }
+            //}
 
         }
 
@@ -1390,9 +1411,81 @@ namespace ShootyShootyRL.Mapping
                 i.Tick();
             }
 
-            updateTCODMap();
-
         }
+
+        /*
+        public void RenderParticles(ParticleEmitter emitter, TCODConsole con)
+        {
+            int top; //Y
+            int left; //X
+            int right;
+            int bottom;
+
+            top = Player.Y - (vp_height / 2);
+            bottom = top + vp_height;
+
+            left = Player.X - (vp_width / 2);
+            right = left + vp_width;
+
+            if (top >= bottom || left >= right)
+                return;
+
+            if (top < 0)
+            {
+                bottom -= top; //Bottom - Top (which is negative): ex.: new Bottom (10-(-5) = 15)
+                top = 0;
+            }
+
+            if (bottom > wm.GLOBAL_HEIGHT)
+            {
+                top -= (bottom - wm.GLOBAL_HEIGHT); //ex.: bottom = 15, Globalheight = 10, Top = 5; => Top = 5 - (15-10) = 0
+                bottom = wm.GLOBAL_HEIGHT;
+            }
+
+            if (left < 0)
+            {
+                right -= left;
+                left = 0;
+            }
+
+            if (right > wm.GLOBAL_WIDTH)
+            {
+                left -= (right - wm.GLOBAL_WIDTH);
+                right = wm.GLOBAL_WIDTH;
+            }
+            Tile t;
+            string displ_string;
+            foreach (Particle p in emitter.particles)
+            {
+                    if (tcod_map.isInFov((int)p.abs_x - cells[0, 0, 0].X, (int)p.abs_y - cells[0, 0, 0].Y))
+                    {
+                        t = getTileFromCells((int)p.abs_x, (int)p.abs_y, emitter.abs_z);
+                        if (t.ForeColor == null)
+                            continue;
+                        con.setBackgroundFlag(TCODBackgroundFlag.Default);
+                        con.setForegroundColor(TCODColor.pink);
+                        displ_string = t.DisplayString;
+
+
+                        if (t.BackColor != null)
+                        {
+                            con.setBackgroundFlag(TCODBackgroundFlag.Set);
+                            con.setBackgroundColor(t.BackColor);
+                        }
+
+                        con.print(1 + ((int)p.abs_x - left), 1 + ((int)p.abs_y - top), displ_string);
+
+                        //con.setBackgroundFlag(TCODBackgroundFlag.Screen);
+                        //con.setBackgroundColor(TCODColor.Interpolate(TCODColor.black, p.color, p.intensity));
+
+                        //con.print(1 + ((int)p.abs_x - left), 1 + ((int)p.abs_y - top), displ_string);
+
+                    }
+                
+            }
+            TCODConsole.flush();
+
+        }*/
 
         public bool Render(TCODConsole con, int con_x, int con_y, int width, int height)
         {
@@ -1449,6 +1542,7 @@ namespace ShootyShootyRL.Mapping
 
             int abs_x, abs_y, abs_z;
             int rel_x, rel_y;
+            int cell_rel_x, cell_rel_y;
             Tile t;
 
             int curr_z = Player.Z;
@@ -1474,7 +1568,7 @@ namespace ShootyShootyRL.Mapping
             }
 
             //Calculate the player's FOV
-            tcod_map.computeFov(tcod_map.getWidth() / 2, tcod_map.getHeight() / 2, tcod_map.getWidth() / 2, true, TCODFOVTypes.DiamondFov);
+            tcod_map.computeFov(Player.X - cells[0, 0, 0].X, Player.Y - cells[0, 0, 0].Y, right-left, true, TCODFOVTypes.RestrictiveFov);
 
             float color_intensity = 1.0f;
 
@@ -1487,11 +1581,13 @@ namespace ShootyShootyRL.Mapping
                     // corner of the viewport *and the tile byte array*, that is)
                     rel_x = abs_x - left;
                     rel_y = abs_y - top;
+                    cell_rel_x = abs_x - cells[0, 0, 0].X;
+                    cell_rel_y = abs_y - cells[0, 0, 0].Y;
 
                     color_intensity = 1.0f;
 
                     //Is visible?
-                    if (!tcod_map.isInFov(rel_x, rel_y))
+                    if (!tcod_map.isInFov(cell_rel_x, cell_rel_y))
                     {
                         if (wm.GetCellFromCoordinates(abs_x, abs_y, Player.Z).IsDiscovered(abs_x, abs_y, Player.Z))
                             color_intensity = 0.4f;
@@ -1506,7 +1602,7 @@ namespace ShootyShootyRL.Mapping
                         continue;
 
                     //Retrieve the actual tile data
-                    if (tcod_map.isTransparent(rel_x, rel_y))
+                    if (tcod_map.isTransparent(cell_rel_x, cell_rel_y))
                         t = wm.GetTileFromID(tilearr[rel_x, rel_y]);
                     else
                         t = getTileFromCells(abs_x, abs_y, Player.Z);

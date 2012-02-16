@@ -1,0 +1,74 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<xs:schema attributeFormDefault="unqualified" elementFormDefault="qualified" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="body">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="name" type="xs:string" />
+        <xs:element name="height" type="xs:decimal" />
+        <xs:element name="width" type="xs:decimal" />
+        <xs:element name="depth" type="xs:decimal" />
+        <xs:element name="variation" type="xs:decimal" />
+        <xs:element name="organ_defs">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element maxOccurs="unbounded" name="organ_def">
+                <xs:complexType>
+                  <xs:sequence>
+                    <xs:element name="name" type="xs:string" />
+                    <xs:element minOccurs="0" name="exclusive" type="xs:boolean" />
+                    <xs:element maxOccurs="unbounded" name="part">
+                      <xs:complexType>
+                        <xs:sequence>
+                          <xs:element name="name" type="xs:string" />
+                          <xs:element name="hit_prob" type="xs:decimal" />
+                          <xs:element name="pain" type="xs:decimal" />
+                          <xs:element name="blood_loss" type="xs:decimal" />
+                          <xs:element name="resistance" type="xs:decimal" />
+                          <xs:element minOccurs="0" name="on_hit_kill" type="xs:boolean" />
+                        </xs:sequence>
+                      </xs:complexType>
+                    </xs:element>
+                  </xs:sequence>
+                </xs:complexType>
+              </xs:element>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="body_parts">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element maxOccurs="unbounded" name="body_part">
+                <xs:complexType>
+                  <xs:sequence>
+                    <xs:element name="name" type="xs:string" />
+                    <xs:element name="surface" type="xs:decimal" />
+                    <xs:element name="weight" type="xs:unsignedByte" />
+                    <xs:element name="essential" type="xs:boolean" />
+                    <xs:element minOccurs="0" name="parent" type="xs:string" />
+                    <xs:element name="symetrical" type="xs:boolean" />
+                    <xs:element name="organs">
+                      <xs:complexType>
+                        <xs:sequence>
+                          <xs:element maxOccurs="unbounded" name="organ">
+                            <xs:complexType>
+                              <xs:sequence>
+                                <xs:element name="thickness" type="xs:decimal" />
+                                <xs:element minOccurs="0" name="hit_prob" type="xs:decimal" />
+                                <xs:element name="type" type="xs:string" />
+                                <xs:element minOccurs="0" name="name" type="xs:string" />
+                              </xs:sequence>
+                            </xs:complexType>
+                          </xs:element>
+                        </xs:sequence>
+                      </xs:complexType>
+                    </xs:element>
+                  </xs:sequence>
+                </xs:complexType>
+              </xs:element>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>

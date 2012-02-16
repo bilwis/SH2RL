@@ -5,6 +5,7 @@ using System.Text;
 using libtcod;
 
 using ShootyShootyRL.Mapping;
+using ShootyShootyRL.Objects.Bodies;
 
 //************************************************************//
 //*                SHOOTY SHOOTY ROGUELIKE                   *//
@@ -29,6 +30,8 @@ namespace ShootyShootyRL.Objects
     {
         [field:NonSerialized()]
         public Queue<Action> Actions;
+
+        public Body body;
 
         protected double energy;
         protected double energyReg;
@@ -145,6 +148,8 @@ namespace ShootyShootyRL.Objects
             Actions = new Queue<Action>();
             doAction(firstAction);
 
+            body.Init(this);
+
             initialized = true;
             msg.SendDebugMessage("New object created and initialized with GUID " + this.GUID + ", name: " + this.Name + ".");
         }
@@ -155,7 +160,7 @@ namespace ShootyShootyRL.Objects
             return true;
         }
 
-        public Creature(int x, int y, int z, String name, String desc, char displaychar)
+        public Creature(int x, int y, int z, String name, String desc, char displaychar, Body body)
         {
             _guid = System.Guid.NewGuid().ToString();
             this.x = x;
@@ -166,6 +171,7 @@ namespace ShootyShootyRL.Objects
 
             _char = displaychar;
 
+            this.body = body;
 
             energy = 0;
             energyReg = 1.0d;
@@ -182,8 +188,8 @@ namespace ShootyShootyRL.Objects
         }
 
 
-        public Player(int x, int y, int z, String name, String desc, char displaychar)
-            : base(x, y, z, name, desc, displaychar)
+        public Player(int x, int y, int z, String name, String desc, char displaychar, Body body)
+            : base(x, y, z, name, desc, displaychar, body)
         {
             energyReg = 1.1d;
         }

@@ -45,10 +45,15 @@
     <Compile Include="Objects\Action.cs" />
     <Compile Include="Objects\AI.cs" />
     <Compile Include="Objects\AICreature.cs" />
+    <Compile Include="Objects\Body\Body.cs" />
+    <Compile Include="Objects\Body\BodyPart.cs" />
+    <Compile Include="Objects\Body\Organ.cs" />
     <Compile Include="Objects\Creature.cs" />
     <Compile Include="Objects\Faction.cs" />
     <Compile Include="Objects\Item.cs" />
     <Compile Include="Program.cs" />
+    <Compile Include="Systems\Particle.cs" />
+    <Compile Include="Systems\ParticleEffector.cs" />
     <Compile Include="Util.cs" />
   </ItemGroup>
   <ItemGroup>
@@ -65,8 +70,13 @@
       <HintPath>.\System.Data.SQLite.Linq.dll</HintPath>
     </Reference>
     <Reference Include="System.Drawing" />
+    <Reference Include="System.XML" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include="body_human.xml">
+      <SubType>Designer</SubType>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <Content Include="celtic_garamond_10x10_gs_tc.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
@@ -89,7 +99,12 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <None Include="body_def.xsd">
+      <SubType>Designer</SubType>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
