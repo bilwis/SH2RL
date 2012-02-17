@@ -52,6 +52,7 @@
     <Compile Include="Objects\Faction.cs" />
     <Compile Include="Objects\Item.cs" />
     <Compile Include="Program.cs" />
+    <Compile Include="Systems\Dialog.cs" />
     <Compile Include="Systems\Particle.cs" />
     <Compile Include="Systems\ParticleEffector.cs" />
     <Compile Include="Util.cs" />
@@ -98,12 +99,6 @@
     <Content Include="zlib1.dll">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="body_def.xsd">
-      <SubType>Designer</SubType>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

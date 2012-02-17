@@ -41,7 +41,9 @@ namespace ShootyShootyRL
         static int WINDOW_WIDTH = 100;
         static int WINDOW_HEIGHT = 80;
         static float MAIN_TO_STATUS_RATIO = 0.8f;
+        static float DIALOG_RATIO = 0.175f; 
 
+        static int DIALOG_HEIGHT = (int)Math.Ceiling(WINDOW_HEIGHT * (DIALOG_RATIO));
         static int MAIN_HEIGHT = (int)Math.Floor(WINDOW_HEIGHT * (MAIN_TO_STATUS_RATIO));
         static int STATUS_HEIGHT = (int)Math.Ceiling(WINDOW_HEIGHT * (1 - MAIN_TO_STATUS_RATIO));
 
@@ -52,6 +54,7 @@ namespace ShootyShootyRL
         TCODConsole root;
         TCODConsole status;
         TCODConsole main;
+        TCODConsole dialog;
 
         SQLiteConnection dbconn; 
 
@@ -75,6 +78,8 @@ namespace ShootyShootyRL
         public String ProfileName;
         public String ProfilePath;
 
+        Dialog current_dialog = null;
+
         //DEBUG VARS
         string test_item_guid;
         string testai_guid;
@@ -89,6 +94,7 @@ namespace ShootyShootyRL
             root = TCODConsole.root;
             status = new TCODConsole(WINDOW_WIDTH, STATUS_HEIGHT);
             main = new TCODConsole(WINDOW_WIDTH, MAIN_HEIGHT);
+            dialog = new TCODConsole(WINDOW_WIDTH, DIALOG_HEIGHT);
 
             Out = new MessageHandler();
 
@@ -242,6 +248,22 @@ namespace ShootyShootyRL
             }
 
             return -1;
+        }
+
+        public void DisplayDialog(String text)
+        {
+            current_dialog = new Dialog(text);
+            Render();
+        }
+
+        public int DisplayInputDialog(String caption, SortedDictionary<char, string> responses)
+        {
+        }
+
+        public void CancelDialog()
+        {
+            current_dialog = null;
+            Render();
         }
 
         public void Run()
@@ -470,6 +492,7 @@ namespace ShootyShootyRL
 
             player.SetPosition(player.X, player.Y, map.DropObject(player.X, player.Y, player.Z + 1));
             map.AddCreature(player);
+            
 
             //testai = new AICreature(302, 300, 15, "TEST", "TEST CREATURE PLEASE IGNORE", 'A');
             //testai.Init(TCODColor.orange, Out, test_faction, new Objects.Action(ActionType.Idle, null, testai, 0.0d), new WalkerAI(rand.Next(0, 100000000)), map);
@@ -730,6 +753,14 @@ namespace ShootyShootyRL
                 return true;
             }
 
+            if (key.KeyCode == TCODKeyCode.F5)
+            {
+                DisplayDialog("This is a test message.Dabei wird in Deutschland die Maßeinheit cm zugrunde gelegt, während in Amerika und England die Maßeinheit inch (1 inch = 2,54 cm) für die Hemdgrößen von Herren verwendet wird. Zusätzlich wird die Ärmellänge im Handel gegebenenfalls mit Kurzarm oder Langarm angegeben, jedoch kann dabei die genaue Länge je nach Hersteller unterschiedlich ausfallen. Meist haben dann bei den Herrenhemden zwei aufeinander folgende Hemdgrößen (z.B. 39/40) den gleichen Schnitt des Oberkörpers.");
+            }
+
+            if (key.Character == 'q')
+                CancelDialog();
+
             if (key.KeyCode == TCODKeyCode.F12)
             {
                 GC.Collect();
@@ -755,13 +786,20 @@ namespace ShootyShootyRL
 
         public void Render()
         {
+            bool render_dialog = (current_dialog == null) ? false : true;
+
             main.setBackgroundColor(TCODColor.black);
             main.clear();
 
             main.setForegroundColor(TCODColor.darkerLime);
-            main.printFrame(0, 0, WINDOW_WIDTH, MAIN_HEIGHT);
+            main.printFrame(0, !render_dialog ? 0 : DIALOG_HEIGHT, WINDOW_WIDTH, !render_dialog ? MAIN_HEIGHT : MAIN_HEIGHT - DIALOG_HEIGHT);
 
-            map.Render(main, 1, 1, WINDOW_WIDTH-2, MAIN_HEIGHT-2);
+            //
+            if (render_dialog)
+                map.Render(main, 1, DIALOG_HEIGHT + 1, WINDOW_WIDTH - 2, MAIN_HEIGHT - DIALOG_HEIGHT - 2);
+            else
+                map.Render(main, 1, 1, WINDOW_WIDTH - 2, MAIN_HEIGHT - 2);
+
             main.setForegroundColor(TCODColor.white);
             main.print(2, 0, "Turn: " + turn + " | Gameturn: " + gameTurn);
             main.print(2, 1, "Z_LEVEL: " + player.Z);
@@ -785,6 +823,13 @@ namespace ShootyShootyRL
 
             Out.Render(status); //Print the message log, y'all
             TCODConsole.blit(status, 0, 0, WINDOW_WIDTH, STATUS_HEIGHT, root, 0, MAIN_HEIGHT);
+
+            if (render_dialog)
+            {
+                current_dialog.Render(dialog);
+
+                TCODConsole.blit(dialog, 0, 0, WINDOW_WIDTH, DIALOG_HEIGHT, root, 0, 0);
+            }
 
             TCODConsole.flush();
 

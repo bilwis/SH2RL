@@ -40,7 +40,7 @@ namespace ShootyShootyRL.Objects
 
         public bool Tick()
         {
-            Random rand = new Random();
+            //Random rand = new Random();
 
             if (!initialized)
                 return false;
@@ -59,6 +59,18 @@ namespace ShootyShootyRL.Objects
             _name = name;
             _desc = desc;
             
+            _char = displaychar;
+        }
+
+        public Item(String guid, String name, char displaychar)
+        {
+            _guid = guid;
+            this.x = 0;
+            this.y = 0;
+            this.z = 0;
+            _name = name;
+            _desc = null;
+
             _char = displaychar;
         }
     }

@@ -17,7 +17,7 @@ namespace ShootyShootyRL.Objects.Bodies
 
         public float height, width, depth;
 
-        bool initalized = false;
+        bool initialized = false;
         bool loaded = false;
 
         public Body()
@@ -38,12 +38,12 @@ namespace ShootyShootyRL.Objects.Bodies
         public void Init(Creature parent)
         {
             this.parent = parent;
-            initalized = true;
+            initialized = true;
         }
 
         public void Save()
         {
-            initalized = false;
+            initialized = false;
         }
 
         public void AddBodyPart(BodyPart bp, BodyPart parent=null)
@@ -101,6 +101,9 @@ namespace ShootyShootyRL.Objects.Bodies
                                 float weight = 0.0f;
                                 bool essential = false;
 
+                                int rgb = 0;
+                                string display_char = " ";
+
                                 bool symetrical = false;
                                 string parent_name = null;
 
@@ -135,6 +138,13 @@ namespace ShootyShootyRL.Objects.Bodies
                                                 case "parent":
                                                     parent_name = reader.ReadElementContentAsString();
                                                     break;
+                                                case "display_char":
+                                                    display_char = reader.ReadElementContentAsString();
+                                                    break;
+                                                case "color":
+                                                    string[] temp_col_arr = reader.ReadElementContentAsString().Split(',');
+                                                    rgb = Util.EncodeRGB(Int32.Parse(temp_col_arr[0]), Int32.Parse(temp_col_arr[1]), Int32.Parse(temp_col_arr[2]));
+                                                    break;
                                                 case "symetrical":
                                                     symetrical = reader.ReadElementContentAsBoolean();
                                                     break;
@@ -166,7 +176,7 @@ namespace ShootyShootyRL.Objects.Bodies
                                                     bp_organs.Add(temp);
                                                     break;
                                                 case "body_part":
-                                                    BodyPart new_bp = new BodyPart(guid, bp_name, surface, weight, essential, symetrical);
+                                                    BodyPart new_bp = new BodyPart(guid, bp_name, surface, weight, essential, symetrical, display_char[0], rgb);
                                                     bp_parents.Add(new_bp.GUID, parent_name);
                                                     parts.Add(new_bp);
                                                     bp_done = true;

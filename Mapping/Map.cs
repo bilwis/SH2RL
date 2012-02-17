@@ -1169,7 +1169,7 @@ namespace ShootyShootyRL.Mapping
             move_blocking = wm.GetMoveBlockerTiles();
 
             ushort curr_tile = 0;
-            int z = Player.Z;
+            int z = DropObject(Player.X, Player.Y, Player.Z+1);
 
             int abs_x, abs_y;
             abs_x = cells[0,0,0].X;
@@ -1602,10 +1602,15 @@ namespace ShootyShootyRL.Mapping
                         continue;
 
                     //Retrieve the actual tile data
+                    //If tile is transparent, display the tile BELOW the player (floor)
                     if (tcod_map.isTransparent(cell_rel_x, cell_rel_y))
                         t = wm.GetTileFromID(tilearr[rel_x, rel_y]);
-                    else
+                    else //the wall!
                         t = getTileFromCells(abs_x, abs_y, Player.Z);
+
+                    //Safeguard
+                    if (t.ForeColor == null)
+                        continue;
 
                     //Prepare for render...
                     con.setBackgroundFlag(TCODBackgroundFlag.Default);

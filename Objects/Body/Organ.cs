@@ -5,6 +5,7 @@ using System.Text;
 
 namespace ShootyShootyRL.Objects.Bodies
 {
+    [Serializable()]
     public class Organ
     {
         public String name;
@@ -50,6 +51,7 @@ namespace ShootyShootyRL.Objects.Bodies
         //TODO: Idea: Butchering converting Organ(Part) -> Item? 
     }
 
+    [Serializable()]
     public struct OrganPart
     {
         public String name;
