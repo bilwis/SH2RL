@@ -54,7 +54,7 @@
     <Compile Include="Program.cs" />
     <Compile Include="Systems\Dialog.cs" />
     <Compile Include="Systems\Particle.cs" />
-    <Compile Include="Systems\ParticleEffector.cs" />
+    <Compile Include="Systems\ParticleEmitter.cs" />
     <Compile Include="Util.cs" />
   </ItemGroup>
   <ItemGroup>

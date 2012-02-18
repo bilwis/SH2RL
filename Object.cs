@@ -94,6 +94,14 @@ namespace ShootyShootyRL
         [field:NonSerialized()]
         protected MessageHandler _messageHandler;
 
+        public MessageHandler MessageHandler
+        {
+            get
+            {
+                return _messageHandler;
+            }
+        }
+
         protected String _name;
         protected String _desc;
 

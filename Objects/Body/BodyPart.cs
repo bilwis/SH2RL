@@ -47,15 +47,21 @@ namespace ShootyShootyRL.Objects.Bodies
             this.IsSymetrical = symetrical;
             this.organs = new List<Organ>();
             this.rgb = rgb;
+
+            
         }
 
-        public void Sever(int x, int y, int z, MessageHandler msg)
+        public BodyPart Sever(int x, int y, int z, MessageHandler msg)
         {
             this.x = x;
             this.y = y;
             this.z = z;
             Init(Util.DecodeRGB(rgb), msg);
             this._desc = "A severed " + name.ToLower() + " lies here.";
+            IsSevered = true;
+            parent = null;
+
+            return this;
         }
 
         public void ConnectToBody(Body body, BodyPart parent=null)

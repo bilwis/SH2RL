@@ -47,6 +47,9 @@ namespace ShootyShootyRL
         static int MAIN_HEIGHT = (int)Math.Floor(WINDOW_HEIGHT * (MAIN_TO_STATUS_RATIO));
         static int STATUS_HEIGHT = (int)Math.Ceiling(WINDOW_HEIGHT * (1 - MAIN_TO_STATUS_RATIO));
 
+        static float EFFECT_RATE_MS = 50f;
+        static float EFFECTS_ALPHA = 0.8f;
+
         static string BODY_DEF_HUMAN = "body_human.xml";
 
         public bool MULTITHREADED_LOADING = true;
@@ -55,6 +58,7 @@ namespace ShootyShootyRL
         TCODConsole status;
         TCODConsole main;
         TCODConsole dialog;
+        TCODConsole effects;
 
         SQLiteConnection dbconn; 
 
@@ -83,7 +87,8 @@ namespace ShootyShootyRL
         //DEBUG VARS
         string test_item_guid;
         string testai_guid;
-        ParticleEmitter emit = new ParticleEmitter(1300,1300,30,100,0.1f,1,0.5f,0.1f,0.1f);
+        ParticleEmitter emit = new ParticleEmitter(1300,1300,31,1.5f,70f,0.75f,1.0f,-2f,2f);
+        int particle_count = 0;
 
         public Game()
         {
@@ -95,6 +100,9 @@ namespace ShootyShootyRL
             status = new TCODConsole(WINDOW_WIDTH, STATUS_HEIGHT);
             main = new TCODConsole(WINDOW_WIDTH, MAIN_HEIGHT);
             dialog = new TCODConsole(WINDOW_WIDTH, DIALOG_HEIGHT);
+            effects = new TCODConsole(WINDOW_WIDTH, MAIN_HEIGHT);
+
+            emit.Init(TCODColor.orange, 20);
 
             Out = new MessageHandler();
 
@@ -253,14 +261,14 @@ namespace ShootyShootyRL
         public void DisplayDialog(String text)
         {
             current_dialog = new Dialog(text);
-            Render();
+            RenderAll();
         }
 
         public int DisplayInputDialog(String caption, SortedDictionary<char, string> responses)
         {
             current_dialog = new InputDialog(caption, responses);
             InputDialog d = (InputDialog)current_dialog;
-            Render();
+            RenderAll();
 
             int selection = -1;
             bool abort = false;
@@ -272,7 +280,7 @@ namespace ShootyShootyRL
                 if (key.Character == 'q')
                 {
                     current_dialog = null;
-                    Render();
+                    RenderAll();
                     break;
                 }
 
@@ -313,7 +321,7 @@ namespace ShootyShootyRL
                 }
 
                 current_dialog = d;
-                Render();
+                RenderAll();
             }
 
 
@@ -323,16 +331,14 @@ namespace ShootyShootyRL
         public void CancelDialog()
         {
             current_dialog = null;
-            Render();
+            RenderAll();
 
         }
 
         public void Run()
         {
             //Stopwatch sw = new Stopwatch();
-
             int menu_in = menu();
-            TCODSystem.setFps(30);
 
             if (menu_in == -1)
                 return;
@@ -342,43 +348,62 @@ namespace ShootyShootyRL
             if (menu_in == 1)
                 InitLoad(ProfileName);
 
+            emit.Tick(0);
             Tick();
-            Render();
-            emit.Init(TCODColor.orange);
+            RenderAll();
 
+            bool redraw = false;
+
+            TCODSystem.setFps(30);
+            TCODConsole.setKeyboardRepeat(200, 60);
+            Stopwatch effects_timer = new Stopwatch();
+            effects_timer.Start();
             while (!endGame && !TCODConsole.isWindowClosed())
             {
-                var key = TCODConsole.waitForKeypress(true);
+                //RenderAll loop
 
-                if (HandleInput(key))
+                var key = TCODConsole.checkForKeypress(1);
+
+                if (key.KeyCode != TCODKeyCode.NoKey)
                 {
-                    if (endGame)
+                    if (HandleInput(key))
                     {
-                        Save();
-                        dbconn.Close();
-                        dbconn.Dispose();
-                        break;
+                        if (endGame)
+                        {
+                            Save();
+                            dbconn.Close();
+                            dbconn.Dispose();
+                            break;
+                        }
+                        if (tar_x != player.X || tar_y != player.Y || tar_z != player.Z)
+                        {
+                            player.Move(tar_x, tar_y, tar_z, map);
+                        }
+
+                        while (player.Actions.Count != 0)
+                        {
+                            Tick();
+                        }
+
+                        redraw = true;
+                        turn++;
                     }
-                    if (tar_x != player.X || tar_y != player.Y || tar_z != player.Z)
-                    {
-                        player.Move(tar_x, tar_y, tar_z, map);
-                    }
+                }
 
-                    Stopwatch fov_watch = new Stopwatch();
-                    fov_watch.Start();
+                if (redraw)
+                {
+                    RenderAll();
+                    redraw = false;
+                }
 
-                    while (player.Actions.Count != 0)
-                    {
-                        Tick();
-                    }
 
-                    fov_watch.Stop();
+                if (effects_timer.ElapsedMilliseconds >= EFFECT_RATE_MS)
+                {
+                    if (emit.abs_z == player.Z)
+                        emit.Tick((int)effects_timer.ElapsedMilliseconds);
 
-                    Out.SendMessage("Ticked all objects, took " + fov_watch.ElapsedMilliseconds + "ms.");
-                    
-                    Render();
-
-                    turn++;
+                    RenderEffects();
+                    effects_timer.Restart();
                 }
             }
         }
@@ -571,6 +596,9 @@ namespace ShootyShootyRL
 
         public void Save()
         {
+            //Save Map
+            map.UnloadMap();
+
             FileStream fstream = new FileStream(System.IO.Path.Combine(ProfilePath,"save.dat"), FileMode.Create);
             StreamWriter swriter = new StreamWriter(fstream);
 
@@ -731,7 +759,7 @@ namespace ShootyShootyRL
             if (gameTurn == ulong.MaxValue - 1)
             {
                 Out.SendMessage("You have reached Game Turn " + ulong.MaxValue + ". This is practially impossible. The developers' estimates show that using a conservative measure of just 17.1ms per turn, by the time you reached this turn, the sun had burned out approximately three million years ago. This is physicially impossible. The game will now crash and the universe collapse shortly thereafter.", Message.MESSAGE_ERROR);
-                Render();
+                RenderAll();
                 TCODConsole.waitForKeypress(true);
                 throw new UniversalSpaceTimeException();
             }
@@ -814,6 +842,11 @@ namespace ShootyShootyRL
                 return true;
             }
 
+            if (key.KeyCode == TCODKeyCode.F4)
+            {
+                map.AddItem((Item)player.Body.SeverRandomBodyPart());
+            }
+
             if (key.KeyCode == TCODKeyCode.F5)
             {
                 //DisplayDialog("This is a test message.Dabei wird in Deutschland die Maßeinheit cm zugrunde gelegt, während in Amerika und England die Maßeinheit inch (1 inch = 2,54 cm) für die Hemdgrößen von Herren verwendet wird. Zusätzlich wird die Ärmellänge im Handel gegebenenfalls mit Kurzarm oder Langarm angegeben, jedoch kann dabei die genaue Länge je nach Hersteller unterschiedlich ausfallen. Meist haben dann bei den Herrenhemden zwei aufeinander folgende Hemdgrößen (z.B. 39/40) den gleichen Schnitt des Oberkörpers.");
@@ -822,6 +855,16 @@ namespace ShootyShootyRL
                 test.Add('b', "Test item B");
                 test.Add('c', "Test item C");
                 Out.SendDebugMessage("Response: " + DisplayInputDialog("Choose one test item. Press q to abort.", test));
+            }
+
+            if (key.KeyCode == TCODKeyCode.F6)
+            {
+                DisplayDialog(player.Body.MakeDescription());
+            }
+
+            if (key.KeyCode == TCODKeyCode.F9)
+            {
+                DisplayDialog(map.ComposeLookAt(player.X, player.Y, player.Z));
             }
 
             if (key.Character == 'q')
@@ -849,8 +892,39 @@ namespace ShootyShootyRL
             return false;
         }
 
+        public void RenderEffects(bool render=true)
+        {
+            Random rand = new Random();
+            bool render_dialog = (current_dialog == null) ? false : true;
 
-        public void Render()
+            effects.setBackgroundColor(TCODColor.black);
+            effects.setBackgroundFlag(TCODBackgroundFlag.Set);
+
+            effects.clear();
+            effects.setKeyColor(TCODColor.black);
+
+            //effects.setBackgroundColor(TCODColor.orange);
+            //effects.setForegroundColor(TCODColor.red);
+            //for (int i = 0; i < 10; i++)
+            //{
+            //    effects.print(rand.Next(1, WINDOW_WIDTH-1), rand.Next(!render_dialog ? 1 : DIALOG_HEIGHT, !render_dialog ? MAIN_HEIGHT : MAIN_HEIGHT - DIALOG_HEIGHT-1), "*");
+            //}
+
+            map.RenderParticles(emit, effects);
+
+            particle_count = emit.particles.Count;
+            main.setForegroundColor(TCODColor.white);
+            main.print(WINDOW_WIDTH - 21, 0, "Particle Count: " + particle_count);
+
+            if (render)
+            {
+                TCODConsole.blit(main, 0, 0, WINDOW_WIDTH, MAIN_HEIGHT, root, 0, 0);
+                TCODConsole.blit(effects, 0, 0, WINDOW_WIDTH, MAIN_HEIGHT, root, 0, 0, EFFECTS_ALPHA, EFFECTS_ALPHA);
+                TCODConsole.flush();
+            }
+        }
+
+        public void RenderAll()
         {
             bool render_dialog = (current_dialog == null) ? false : true;
 
@@ -877,7 +951,10 @@ namespace ShootyShootyRL
 
             main.print(WINDOW_WIDTH - 1, 0, "+");
 
+            RenderEffects(false);
+
             TCODConsole.blit(main, 0, 0, WINDOW_WIDTH, MAIN_HEIGHT, root, 0, 0);
+            TCODConsole.blit(effects, 0, 0, WINDOW_WIDTH, MAIN_HEIGHT, root, 0, 0, EFFECTS_ALPHA, EFFECTS_ALPHA);
 
             status.setForegroundColor(TCODColor.darkerOrange);
             status.setBackgroundColor(TCODColor.brass);

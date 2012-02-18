@@ -1064,6 +1064,15 @@ namespace ShootyShootyRL.Mapping
             command.Dispose();
         }
 
+        public void UnloadMap()
+        {
+            CreatureList.Remove(Player.GUID);
+            foreach (Cell c in cells)
+            {
+                unloadCellContent(c);
+            }
+        }
+        
         #endregion
 
         #region "Utility Functions"
@@ -1198,6 +1207,31 @@ namespace ShootyShootyRL.Mapping
             //    }
             //}
 
+        }
+
+        public String ComposeLookAt(int abs_x, int abs_y, int abs_z)
+        {
+            String temp = "";
+
+            foreach (Creature c in CreatureList.Values)
+            {
+                if (c.X == abs_x && c.Y == abs_y && c.Z == abs_z)
+                {
+                    temp += c.Description + " ";
+                }
+            }
+
+            foreach (Item i in ItemList.Values)
+            {
+                if (i.X == abs_x && i.Y == abs_y && i.Z == abs_z)
+                {
+                    temp += i.Description + " ";
+                }
+            }
+
+            temp += getTileFromCells(abs_x, abs_y, abs_z-1).Description;
+
+            return temp;
         }
 
         #endregion
@@ -1413,9 +1447,12 @@ namespace ShootyShootyRL.Mapping
 
         }
 
-        /*
+        
         public void RenderParticles(ParticleEmitter emitter, TCODConsole con)
         {
+            if (emitter.abs_z != Player.Z)
+                return;
+
             int top; //Y
             int left; //X
             int right;
@@ -1453,39 +1490,38 @@ namespace ShootyShootyRL.Mapping
                 left -= (right - wm.GLOBAL_WIDTH);
                 right = wm.GLOBAL_WIDTH;
             }
-            Tile t;
-            string displ_string;
+            //Tile t;
+            //string displ_string;
             foreach (Particle p in emitter.particles)
             {
                     if (tcod_map.isInFov((int)p.abs_x - cells[0, 0, 0].X, (int)p.abs_y - cells[0, 0, 0].Y))
                     {
-                        t = getTileFromCells((int)p.abs_x, (int)p.abs_y, emitter.abs_z);
-                        if (t.ForeColor == null)
-                            continue;
-                        con.setBackgroundFlag(TCODBackgroundFlag.Default);
-                        con.setForegroundColor(TCODColor.pink);
-                        displ_string = t.DisplayString;
+                        ////t = getTileFromCells((int)p.abs_x, (int)p.abs_y, emitter.abs_z);
+                        ////if (t.ForeColor == null)
+                        ////    continue;
+                        //con.setBackgroundFlag(TCODBackgroundFlag.Default);
+                        //con.setForegroundColor(TCODColor.pink);
+                        //displ_string = t.DisplayString;
 
 
-                        if (t.BackColor != null)
-                        {
-                            con.setBackgroundFlag(TCODBackgroundFlag.Set);
-                            con.setBackgroundColor(t.BackColor);
-                        }
-
-                        con.print(1 + ((int)p.abs_x - left), 1 + ((int)p.abs_y - top), displ_string);
-
-                        //con.setBackgroundFlag(TCODBackgroundFlag.Screen);
-                        //con.setBackgroundColor(TCODColor.Interpolate(TCODColor.black, p.color, p.intensity));
+                        //if (t.BackColor != null)
+                        //{
+                        //    con.setBackgroundFlag(TCODBackgroundFlag.Set);
+                        //    con.setBackgroundColor(t.BackColor);
+                        //}
 
                         //con.print(1 + ((int)p.abs_x - left), 1 + ((int)p.abs_y - top), displ_string);
+
+                        con.setBackgroundFlag(TCODBackgroundFlag.Screen);
+                        con.setBackgroundColor(TCODColor.Interpolate(TCODColor.black, p.color, p.intensity));
+
+                        con.print(1 + ((int)p.abs_x - left), 1 + ((int)p.abs_y - top), " "); // displ_string);
 
                     }
                 
             }
-            TCODConsole.flush();
 
-        }*/
+        }
 
         public bool Render(TCODConsole con, int con_x, int con_y, int width, int height)
         {
@@ -1636,13 +1672,13 @@ namespace ShootyShootyRL.Mapping
                 _out.SendMessage("Drew frame, printed " + debug_prints + " tiles, took " + sw.ElapsedMilliseconds + "ms.");
 
             #region "Object rendering"
-            //Render the player
+            //RenderAll the player
             con.setBackgroundFlag(TCODBackgroundFlag.Default);
             con.setForegroundColor(Player.ForeColor);
 
             con.print(con_x + (Player.X - left), con_y + (Player.Y - top), Player.DisplayString);
 
-            //Render the creatures
+            //RenderAll the creatures
             foreach (Creature c in CreatureList.Values)
             {
                 if (c.Z >= curr_z - Map.VIEW_DISTANCE_CREATURES_DOWN_Z && c.Z <= curr_z + Map.VIEW_DISTANCE_CREATURES_UP_Z)
@@ -1652,7 +1688,7 @@ namespace ShootyShootyRL.Mapping
                 }
             }
 
-            //Render the items
+            //RenderAll the items
             foreach (Item i in ItemList.Values)
             {
                 if (i.Z >= curr_z - Map.VIEW_DISTANCE_CREATURES_DOWN_Z && i.Z <= curr_z + Map.VIEW_DISTANCE_CREATURES_UP_Z)

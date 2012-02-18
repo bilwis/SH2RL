@@ -12,7 +12,7 @@ namespace ShootyShootyRL.Systems
         public float abs_y;
         public float veloc_x;
         public float veloc_y;
-        public int lifetime;
+        public float lifetime;
         public float intensity;
         public TCODColor color;
 

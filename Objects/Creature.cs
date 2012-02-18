@@ -31,7 +31,7 @@ namespace ShootyShootyRL.Objects
         [field:NonSerialized()]
         public Queue<Action> Actions;
 
-        public Body body;
+        public Body Body;
 
         protected double energy;
         protected double energyReg;
@@ -148,7 +148,7 @@ namespace ShootyShootyRL.Objects
             Actions = new Queue<Action>();
             doAction(firstAction);
 
-            body.Init(this);
+            Body.Init(this);
 
             initialized = true;
             msg.SendDebugMessage("New object created and initialized with GUID " + this.GUID + ", name: " + this.Name + ".");
@@ -171,7 +171,7 @@ namespace ShootyShootyRL.Objects
 
             _char = displaychar;
 
-            this.body = body;
+            this.Body = body;
 
             energy = 0;
             energyReg = 1.0d;

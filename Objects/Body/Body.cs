@@ -52,6 +52,28 @@ namespace ShootyShootyRL.Objects.Bodies
             bp.ConnectToBody(this, parent);
         }
 
+        public BodyPart SeverRandomBodyPart()
+        {
+            Random rand = new Random();
+            int i = rand.Next(0, parts.Count);
+            BodyPart temp_part =  parts[i].Sever(parent.X, parent.Y, parent.Z, parent.MessageHandler);
+
+            parts.RemoveAt(i);
+            return temp_part;
+        }
+
+        public String MakeDescription()
+        {
+            String temp = "";
+
+            foreach (BodyPart bp in parts)
+            {
+                temp += bp.name + ", ";
+            }
+
+            return temp;
+        }
+
         public void ParseBodyDefinition(string filename)
         {
             Random rand = new Random();
@@ -199,7 +221,7 @@ namespace ShootyShootyRL.Objects.Bodies
                 }
             }
 
-            //load bp_organs into bodyparts, attach bodyparts to body
+            //load bp_organs into bodyparts, attach bodyparts to Body
             foreach (BodyPart p in parts)
             {
                 foreach (OrganConstructor oc in bp_organs)
@@ -344,7 +366,7 @@ namespace ShootyShootyRL.Objects.Bodies
                                 break;
                             case "organ":
                                 if (readingOrgan)
-                                    throw new Exception("Error while parsing body definition XML: Organ element not closed before line " + reader.LineNumber + ".");
+                                    throw new Exception("Error while parsing Body definition XML: Organ element not closed before line " + reader.LineNumber + ".");
                                 readingOrgan = true;
                                 symetrical = false;
 
