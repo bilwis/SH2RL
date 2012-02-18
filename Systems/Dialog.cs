@@ -87,15 +87,44 @@ namespace ShootyShootyRL.Systems
 
         public void MoveSelection(int step)
         {
-            if (selectedIndex + step > responses.Count)
-                selectedIndex = (selectedIndex + step) - responses.Count;
-            if (selectedIndex + step < 0)
-                selectedIndex = responses.Count - (selectedIndex+step);
+            selectedIndex += step;
+            if (selectedIndex >= responses.Count)
+                selectedIndex = responses.Count-1;
+            if (selectedIndex < 0)
+                selectedIndex = 0;
         }
 
-        public void Render(TCODConsole con, int x, int y, int width, int height)
+        public new void Render(TCODConsole con)
         {
+            int maxchars = con.getWidth() - 4;
+            int y = 2;
+            int cap_lines = 0;
 
+            con.setForegroundColor(TCODColor.darkerAzure);
+            con.printFrame(0, 0, con.getWidth(), con.getHeight());
+            con.setForegroundColor(TCODColor.white);
+
+            List<string> lines = new List<string>();
+
+            lines.AddRange(wrapLine(Text, maxchars));
+            cap_lines = lines.Count;
+            
+            foreach (KeyValuePair<char, string> kv in responses)
+            {
+                lines.Add(kv.Key + ") " + kv.Value);
+            }
+
+            for (int i = 0; i < lines.Count; i++)
+            {
+                con.setBackgroundFlag(TCODBackgroundFlag.Set);
+                if (i - cap_lines == selectedIndex)
+                    con.setBackgroundColor(TCODColor.sepia);
+                else
+                    con.setBackgroundColor(TCODColor.black);
+
+                con.print(2, y+i, lines[i]);
+                con.setBackgroundFlag(TCODBackgroundFlag.Default);
+            }
         }
 
         public int GetCurrentSelectionIndex()

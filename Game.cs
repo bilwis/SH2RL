@@ -78,7 +78,7 @@ namespace ShootyShootyRL
         public String ProfileName;
         public String ProfilePath;
 
-        Dialog current_dialog = null;
+        System.Object current_dialog = null;
 
         //DEBUG VARS
         string test_item_guid;
@@ -160,21 +160,21 @@ namespace ShootyShootyRL
 
                 key = TCODConsole.waitForKeypress(true);
 
-                if (key.KeyCode == TCODKeyCode.Up)
+                if (key.KeyCode == TCODKeyCode.KeypadSubtract)
                 {
                     if (selected > 0)
                         selected--;
                     else if (selected == 0)
                         selected = 2;
                 }
-                if (key.KeyCode == TCODKeyCode.Down)
+                if (key.KeyCode == TCODKeyCode.KeypadAdd)
                 {
                     if (selected < 2)
                         selected++;
                     else if (selected == 2)
                         selected = 0;
                 }
-                if (key.KeyCode == TCODKeyCode.Enter)
+                if (key.KeyCode == TCODKeyCode.KeypadEnter || key.KeyCode == TCODKeyCode.Enter)
                 {
                     root.print(WINDOW_WIDTH / 2 - 5, WINDOW_HEIGHT / 2 - 1, "                ");
                     root.print(WINDOW_WIDTH / 2 - 5, WINDOW_HEIGHT / 2, "                ");
@@ -215,21 +215,21 @@ namespace ShootyShootyRL
 
                             key = TCODConsole.waitForKeypress(true);
 
-                            if (key.KeyCode == TCODKeyCode.Up)
+                            if (key.KeyCode == TCODKeyCode.KeypadSubtract)
                             {
                                 if (selected > 0)
                                     selected--;
                                 else if (selected == 0)
                                     selected = profiles.Count -1;
                             }
-                            if (key.KeyCode == TCODKeyCode.Down)
+                            if (key.KeyCode == TCODKeyCode.KeypadAdd)
                             {
                                 if (selected < profiles.Count)
                                     selected++;
                                 if (selected == profiles.Count)
                                     selected = 0;
                             }
-                            if (key.KeyCode == TCODKeyCode.Enter)
+                            if (key.KeyCode == TCODKeyCode.KeypadEnter || key.KeyCode == TCODKeyCode.Enter)
                             {
                                 if (profiles[selected] == "Back")
                                 {
@@ -258,12 +258,73 @@ namespace ShootyShootyRL
 
         public int DisplayInputDialog(String caption, SortedDictionary<char, string> responses)
         {
+            current_dialog = new InputDialog(caption, responses);
+            InputDialog d = (InputDialog)current_dialog;
+            Render();
+
+            int selection = -1;
+            bool abort = false;
+
+            while (!abort)
+            {
+                var key = TCODConsole.waitForKeypress(true);
+
+                if (key.Character == 'q')
+                {
+                    current_dialog = null;
+                    Render();
+                    break;
+                }
+
+                if (responses.ContainsKey(key.Character))
+                {
+                    selection = d.SelectAndConfirm(key.Character);
+                    break;
+                }
+
+                switch (key.KeyCode)
+                {
+                    case TCODKeyCode.KeypadAdd:
+                        d.MoveSelection(1);
+                        break;
+                    case TCODKeyCode.KeypadSubtract:
+                        d.MoveSelection(-1);
+                        break;
+                    case TCODKeyCode.KeypadEnter:
+                        selection = d.Confirm();
+                        break;
+                    case TCODKeyCode.Enter:
+                        selection = d.Confirm();
+                        break;
+                    default:
+                        abort = true;
+                        break;
+                }
+
+                if (abort)
+                {
+                    HandleInput(key);
+                    d = null;
+                }
+                if (selection != -1)
+                {
+                    d = null;
+                    abort = true;
+                }
+
+                current_dialog = d;
+                Render();
+            }
+
+
+            return selection;
         }
 
         public void CancelDialog()
         {
             current_dialog = null;
             Render();
+
         }
 
         public void Run()
@@ -755,7 +816,12 @@ namespace ShootyShootyRL
 
             if (key.KeyCode == TCODKeyCode.F5)
             {
-                DisplayDialog("This is a test message.Dabei wird in Deutschland die Maßeinheit cm zugrunde gelegt, während in Amerika und England die Maßeinheit inch (1 inch = 2,54 cm) für die Hemdgrößen von Herren verwendet wird. Zusätzlich wird die Ärmellänge im Handel gegebenenfalls mit Kurzarm oder Langarm angegeben, jedoch kann dabei die genaue Länge je nach Hersteller unterschiedlich ausfallen. Meist haben dann bei den Herrenhemden zwei aufeinander folgende Hemdgrößen (z.B. 39/40) den gleichen Schnitt des Oberkörpers.");
+                //DisplayDialog("This is a test message.Dabei wird in Deutschland die Maßeinheit cm zugrunde gelegt, während in Amerika und England die Maßeinheit inch (1 inch = 2,54 cm) für die Hemdgrößen von Herren verwendet wird. Zusätzlich wird die Ärmellänge im Handel gegebenenfalls mit Kurzarm oder Langarm angegeben, jedoch kann dabei die genaue Länge je nach Hersteller unterschiedlich ausfallen. Meist haben dann bei den Herrenhemden zwei aufeinander folgende Hemdgrößen (z.B. 39/40) den gleichen Schnitt des Oberkörpers.");
+                SortedDictionary<char, string> test = new SortedDictionary<char, string>();
+                test.Add('a', "Test item A");
+                test.Add('b', "Test item B");
+                test.Add('c', "Test item C");
+                Out.SendDebugMessage("Response: " + DisplayInputDialog("Choose one test item. Press q to abort.", test));
             }
 
             if (key.Character == 'q')
@@ -826,7 +892,16 @@ namespace ShootyShootyRL
 
             if (render_dialog)
             {
-                current_dialog.Render(dialog);
+                if (current_dialog.GetType() == typeof(Dialog))
+                {
+                    Dialog d = (Dialog)current_dialog;
+                    d.Render(dialog);
+                }
+                if (current_dialog.GetType() == typeof(InputDialog))
+                {
+                    InputDialog d = (InputDialog)current_dialog;
+                    d.Render(dialog);
+                }
 
                 TCODConsole.blit(dialog, 0, 0, WINDOW_WIDTH, DIALOG_HEIGHT, root, 0, 0);
             }
