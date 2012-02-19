@@ -139,7 +139,7 @@ namespace ShootyShootyRL.Objects
         }
 
         //TODO: Actions !
-        public void Init(TCODColor color, MessageHandler msg, Faction fac, Action firstAction)
+        public virtual void Init(TCODColor color, MessageHandler msg, Faction fac, Action firstAction)
         {
             ForeColor = color;
             _messageHandler = msg;
@@ -181,12 +181,33 @@ namespace ShootyShootyRL.Objects
     [Serializable()]
     public class Player:Creature
     {
+        public LightSource Lightsource;
+
         protected override bool checkMovement(MovementActionParameters param)
         {
             //_messageHandler.SendDebugMessage("CONSIDERING MOVEMENT FOR " + _name + " WITH PLAYER checkMovement()");
             return param.map.CheckPlayerMovement(param.Target_X, param.Target_Y, param.Target_Z);
         }
 
+        public override void SetPosition(int x, int y, int z)
+        {
+            Lightsource.SetPosition(x, y, z);
+
+            base.SetPosition(x, y, z);
+        }
+
+        public void RegisterLightSource(LightSource ls)
+        {
+            Lightsource = ls;
+        }
+
+        public override void Init(TCODColor fore, MessageHandler messageHandler, Faction fac, Action firstAction)
+        {
+            Lightsource.Init(fore, messageHandler);
+            Lightsource.Activate();
+
+            base.Init(fore, messageHandler, fac, firstAction);
+        }
 
         public Player(int x, int y, int z, String name, String desc, char displaychar, Body body)
             : base(x, y, z, name, desc, displaychar, body)

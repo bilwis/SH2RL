@@ -130,6 +130,32 @@ namespace ShootyShootyRL.Mapping
             light_level[abs_x - X, abs_y - Y, abs_z - Z] = value;
         }
 
+        public void LowerLightLevel(byte value, int abs_x, int abs_y, int abs_z)
+        {
+            if (abs_x < X || abs_x > X + world.CELL_WIDTH ||
+                abs_y < Y || abs_y > Y + world.CELL_HEIGHT ||
+                abs_z < Z || abs_z > Z + world.CELL_DEPTH)
+                throw new Exception("Error while trying to set light level for Tile at " + abs_x + ", " + abs_y + ", " + abs_z + ". Not in called Cell.");
+
+            if (light_level[abs_x - X, abs_y - Y, abs_z - Z] > value)
+                light_level[abs_x - X, abs_y - Y, abs_z - Z] -= value;
+            else
+                light_level[abs_x - X, abs_y - Y, abs_z - Z] = 0;
+        }
+
+        public void RaiseLightLevel(byte value, int abs_x, int abs_y, int abs_z)
+        {
+            if (abs_x < X || abs_x > X + world.CELL_WIDTH ||
+                abs_y < Y || abs_y > Y + world.CELL_HEIGHT ||
+                abs_z < Z || abs_z > Z + world.CELL_DEPTH)
+                throw new Exception("Error while trying to set light level for Tile at " + abs_x + ", " + abs_y + ", " + abs_z + ". Not in called Cell.");
+
+            if (light_level[abs_x - X, abs_y - Y, abs_z - Z] < 255 - value)
+                light_level[abs_x - X, abs_y - Y, abs_z - Z] += value;
+            else
+                light_level[abs_x - X, abs_y - Y, abs_z - Z] = 255;
+        }
+
         public byte GetLightLevel(int abs_x, int abs_y, int abs_z)
         {
             //if (abs_x < X || abs_x > X + world.CELL_WIDTH ||

@@ -6,11 +6,36 @@ using System.Text;
 namespace ShootyShootyRL.Objects
 {
     [Serializable()]
-    class LightSource:Item
+    public class LightSource:Item
     {
         private byte level;
         private bool recalc;
         private bool active;
+
+        private int prev_x, prev_y, prev_z;
+        private byte prev_level;
+
+        public int PrevX
+        {
+            get
+            {
+                return prev_x;
+            }
+        }
+        public int PrevY
+        {
+            get
+            {
+                return prev_y;
+            }
+        }
+        public int PrevZ
+        {
+            get
+            {
+                return prev_z;
+            }
+        }
 
         public byte LightLevel
         {
@@ -20,6 +45,14 @@ namespace ShootyShootyRL.Objects
                     return level;
                 else
                     return 0;
+            }
+        }
+
+        public byte PreviousLightLevel
+        {
+            get
+            {
+                return prev_level;
             }
         }
 
@@ -38,13 +71,23 @@ namespace ShootyShootyRL.Objects
             this.y = y;
             this.z = z;
 
+            prev_x = x;
+            prev_y = y;
+            prev_z = z;
+
             this.level = level;
+            prev_level = level;
+
             active = false;
             recalc = false;
         }
 
         public override void SetPosition(int abs_x, int abs_y, int abs_z)
         {
+            prev_x = x;
+            prev_y = y;
+            prev_z = z;
+
             this.x = abs_x;
             this.y = abs_y;
             this.z = abs_z;
@@ -72,6 +115,7 @@ namespace ShootyShootyRL.Objects
 
         public void SetLevel(byte level)
         {
+            prev_level = level;
             this.level = level;
             if (active)
                 recalc = true;

@@ -64,7 +64,7 @@ namespace ShootyShootyRL
 
         bool endGame = false;
 
-        Creature player;
+        Player player;
         AICreature testai;
         WorldMap wm;
         uint seed;
@@ -513,7 +513,7 @@ namespace ShootyShootyRL
             mstream.Seek(0, SeekOrigin.Begin);
 
             //Deserialize the player
-            player = (Creature)deserializer.Deserialize(mstream);
+            player = (Player)deserializer.Deserialize(mstream);
 
             player.Init(TCODColor.yellow, Out, _fac, new Objects.Action(ActionType.Idle, null, player, 0.0d));
 
@@ -560,6 +560,8 @@ namespace ShootyShootyRL
             root.setBackgroundFlag(TCODBackgroundFlag.Default);
 
             player = new Player(1300, 1300, 35, "Player", "A ragged and scruffy-looking individual.", '@', new Body(BODY_DEF_HUMAN));
+
+            player.RegisterLightSource(new LightSource(1300, 1300, 35, 12, "Torch", "A torch.", '!'));
             player.Init(TCODColor.yellow, Out, player_faction, new Objects.Action(ActionType.Idle, null, player, 0.0d));
 
             Out.SendMessage("Welcome to [insert game name here]!", Message.MESSAGE_WELCOME);
@@ -595,11 +597,12 @@ namespace ShootyShootyRL
             //map.AddCreature(testai2);
 
             //Item test_item = new Item(1299, 1299, map.DropObject(1299, 1299, 35), "Shimmering rock", "A shining polished rock which seems to change color when you look at it.", (char)'*');
-            LightSource test_item = new LightSource(1299, 1299, map.DropObject(1299, 1299, 35), 5, "Shimmering Rock", "A shining polished rock which seems to change color when you look at it.", (char)'*');
-            test_item_guid = test_item.GUID;
-            test_item.Init(TCODColor.red, Out);
-            test_item.Activate();
-            map.AddItem(test_item);
+           
+            //LightSource test_item = new LightSource(1299, 1299, map.DropObject(1299, 1299, 35), 12, "Shimmering Rock", "A shining polished rock which seems to change color when you look at it.", (char)'*');
+            //test_item_guid = test_item.GUID;
+            //test_item.Init(TCODColor.red, Out);
+            //test_item.Activate();
+            //map.AddItem(test_item);
         }
 
         public void Save()
@@ -877,6 +880,14 @@ namespace ShootyShootyRL
 
             if (key.Character == 'q')
                 CancelDialog();
+
+            if (key.KeyCode == TCODKeyCode.F11)
+            {
+                LightSource ls = (LightSource)map.ItemList[test_item_guid];
+                map.ItemList.Remove(test_item_guid);
+                ls.SetPosition(player.X, player.Y, player.Z);
+                map.ItemList.Add(test_item_guid, ls);
+            }
 
             if (key.KeyCode == TCODKeyCode.F12)
             {
