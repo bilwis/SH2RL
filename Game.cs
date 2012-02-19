@@ -380,10 +380,16 @@ namespace ShootyShootyRL
                             player.Move(tar_x, tar_y, tar_z, map);
                         }
 
+                        Stopwatch light = new Stopwatch();
+                        light.Start();
+
                         while (player.Actions.Count != 0)
                         {
                             Tick();
                         }
+
+                        light.Stop();
+                        Out.SendMessage("Ticking through to next action took " + light.ElapsedMilliseconds + "ms.");
 
                         redraw = true;
                         turn++;
@@ -588,9 +594,11 @@ namespace ShootyShootyRL
             //map.AddCreature(testai);
             //map.AddCreature(testai2);
 
-            Item test_item = new Item(1299, 1299, map.DropObject(1299, 1299, 35), "Shimmering rock", "A shining polished rock which seems to change color when you look at it.", (char)'*');
+            //Item test_item = new Item(1299, 1299, map.DropObject(1299, 1299, 35), "Shimmering rock", "A shining polished rock which seems to change color when you look at it.", (char)'*');
+            LightSource test_item = new LightSource(1299, 1299, map.DropObject(1299, 1299, 35), 5, "Shimmering Rock", "A shining polished rock which seems to change color when you look at it.", (char)'*');
             test_item_guid = test_item.GUID;
             test_item.Init(TCODColor.red, Out);
+            test_item.Activate();
             map.AddItem(test_item);
         }
 

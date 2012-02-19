@@ -48,6 +48,8 @@ namespace ShootyShootyRL.Mapping
         public Dictionary<String, double> CreaturesByDistance;
         public Dictionary<String, Item> ItemList;
 
+        //public Dictionary<String, LightSource> LightSources;
+
         public bool initialized = false;
 
         public static int VIEW_DISTANCE_TILES_Z = 10;
@@ -61,6 +63,9 @@ namespace ShootyShootyRL.Mapping
         private SQLiteConnection dbconn;
 
         private TCODMap tcod_map;
+        private bool[, ,] in_sunlight;
+        private byte sun_light = 12;
+        private bool sun_level_changed = false;
 
         private int vp_height;
         private int vp_width;
@@ -77,9 +82,12 @@ namespace ShootyShootyRL.Mapping
             this.vp_height = vp_height;
             this.vp_width = vp_width;
 
+            sun_level_changed = true;
+
             CreatureList = new Dictionary<string, Creature>();
             CreaturesByDistance = new Dictionary<string, double>();
             ItemList = new Dictionary<string, Item>();
+            //LightSources = new Dictionary<string, LightSource>();
             this.facman = facman;
 
             //tcod_map = new TCODMap(vp_width, vp_height);
@@ -87,7 +95,6 @@ namespace ShootyShootyRL.Mapping
 
             cells = new Cell[3, 3, 3];
             centerAndLoad(player);
-
         }
 
         #region "Loading and Saving"
@@ -426,6 +433,11 @@ namespace ShootyShootyRL.Mapping
             loadDifferences();
             loadNewCellContent();
             updateTCODMap();
+            Stopwatch sw = new Stopwatch();
+            sw.Start();
+            in_sunlight = updateSunMap();
+            sw.Stop();
+            Debug.WriteLine("SunMap update took " + sw.ElapsedMilliseconds + "ms.");
             load_after = new bool[3, 3, 3];
             initialized = true;
         }
@@ -1193,20 +1205,234 @@ namespace ShootyShootyRL.Mapping
                 }
             }
 
-            //abs_x = Player.X - tcod_map.getWidth()/2;
-            //abs_y = Player.Y - tcod_map.getHeight()/2;
+        }
 
-            //for (int x = 0; x < tcod_map.getWidth(); x++)
-            //{
-            //    for (int y = 0; y < tcod_map.getHeight(); y++)
-            //    {
-            //        curr_tile = getTileIDFromCells(abs_x + x, abs_y + y,z);
-            //        if (curr_tile == 0)
-            //            curr_tile = 0;
-            //        tcod_map.setProperties(x, y, !los_blocking[curr_tile], move_blocking[curr_tile]);
-            //    }
-            //}
+        private bool[,,] updateSunMap()
+        {
+            bool[,,] temp_in_sunlight = new bool[wm.CELL_WIDTH * 3, wm.CELL_HEIGHT * 3, wm.CELL_DEPTH * 3];
 
+            if (cells[0, 0, 2].Z < wm.GROUND_LEVEL)
+                return temp_in_sunlight;
+            int rel_x, rel_z, rel_y;
+
+            for (int x = cells[0,0,0].X ; x < cells[0,0,0].X + 3 * wm.CELL_WIDTH; x++)
+            {
+                for (int y = cells[0, 0, 0].Y; y < cells[0,0,0].Y  + 3 * wm.CELL_HEIGHT; y++)
+                {
+                    for (int z = cells[0,0,2].Z + wm.CELL_DEPTH -1; z > cells[0,0,0].Z; z--)
+                    {
+                        if (z < wm.GROUND_LEVEL)
+                            break;
+
+                        rel_x = x - cells[0, 0, 0].X;
+                        rel_y = y - cells[0, 0, 0].Y;
+                        rel_z = z - cells[0, 0, 0].Z;
+
+                        if (z == cells[0, 0, 2].Z + wm.CELL_DEPTH -1)
+                        {
+                            temp_in_sunlight[rel_x, rel_y, rel_z] = true;
+                            continue;
+                        }
+
+                        if (!wm.GetCellFromCoordinates(x, y, z + 1).GetTile(x, y, z + 1).BlocksLOS && temp_in_sunlight[rel_x, rel_y, rel_z + 1])
+                            temp_in_sunlight[rel_x, rel_y, rel_z] = true;
+                    }
+                }
+            }
+
+            return temp_in_sunlight;
+        }
+
+        public void UpdateLightMap()
+        {
+            //TODO: make a list of sources
+            //make updates dependent on change since last call
+            //make light levels dependant on LOS of source
+
+            Stopwatch of_horrors = new Stopwatch();
+            Debug.WriteLine("");
+            Debug.WriteLine("NEW LIGHTMAP UPDATE");
+            Debug.WriteLine("");
+
+            int changes = -1;
+            byte[,] temp = new byte[wm.CELL_WIDTH * 3, wm.CELL_HEIGHT * 3];
+            List<ulong> aff_tiles = new List<ulong>();
+            List<ulong> new_aff_tiles = new List<ulong>();
+
+            int z = Player.Z;
+
+            int abs_x = cells[0,0,0].X;
+            int abs_y = cells[0,0,0].Y;
+
+            int cell_z = 1; //Player level
+            int rel_z = 0;
+            int lm_rel_z = Player.Z - cells[0, 0, 0].Z;
+
+
+            Debug.Write("Collecting LightSource items...");
+            of_horrors.Start();
+
+            List<LightSource> sources = new List<LightSource>();
+
+            foreach (Item i in ItemList.Values)
+            {
+                if (i.GetType() == typeof(LightSource))
+                {
+                    LightSource s = (LightSource)i;
+                    if (s.DoRecalculate && s.Z == z)
+                        sources.Add(s);
+                }
+            }
+
+            of_horrors.Stop();
+            Debug.WriteLine("done. Took " + of_horrors.ElapsedMilliseconds + "ms.");
+
+            Debug.Write("Checking if recalculation is necessary...");
+            if (sources.Count == 0 && !sun_level_changed)
+            {
+                Debug.WriteLine(" No recalculation necessary.");
+                return;
+            }
+            Debug.WriteLine(" Recalculation necessary.");
+
+            Debug.Write("Filling temporary array...");
+            of_horrors.Restart();
+
+            for (int cell_x = 0; cell_x < 3; cell_x++)
+            {
+                for (int cell_y = 0; cell_y < 3; cell_y++)
+                {
+                    rel_z = z - cells[cell_x, cell_y, cell_z].Z;
+                    cells[cell_x, cell_y, cell_z].ResetLightLevel();
+                    for (int x = 0; x < wm.CELL_WIDTH; x++)
+                    {
+                        for (int y = 0; y < wm.CELL_HEIGHT; y++)
+                        {
+                            temp[cell_x * wm.CELL_WIDTH + x, cell_y * wm.CELL_WIDTH + y] = in_sunlight[cell_x * wm.CELL_WIDTH + x, cell_y * wm.CELL_WIDTH + y, lm_rel_z] ? this.sun_light : cells[cell_x, cell_y, cell_z].light_level[x, y, rel_z];
+                            
+                        }
+                    }
+                }
+            }
+
+            of_horrors.Stop();
+            Debug.WriteLine("done. Took " + of_horrors.ElapsedMilliseconds + "ms.");
+            Debug.Write("Checking for affected tiles to be recalculated...");
+            of_horrors.Restart();
+
+            foreach (LightSource ls in sources)
+            {
+                temp[ls.X - abs_x, ls.Y - abs_y] = ls.LightLevel;
+            }
+
+            for (int x = 1; x < wm.CELL_WIDTH * 3 - 1; x++)
+            {
+                for (int y = 1; y < wm.CELL_HEIGHT * 3 - 1; y++)
+                {
+                    if (temp[x,y] > 0 &&
+                        (temp[x + 1, y] < temp[x, y] || temp[x - 1, y] < temp[x, y] ||
+                        temp[x, y + 1] < temp[x, y] || temp[x, y - 1] < temp[x, y]))
+                        aff_tiles.Add((ulong)(x << 16 | y));
+                }
+            }
+
+            //of_horrors.Stop();
+            //Debug.WriteLine("done. Found " + aff_tiles.Count + " tiles, took " + of_horrors.ElapsedMilliseconds + "ms.");
+            //Debug.Write("Recalculating light levels...");
+            //of_horrors.Restart();
+
+            int cx = 0;
+            int cy = 0;
+            int it = 0;
+
+            while (changes != 0)
+            {
+                changes = 0;
+                foreach (ulong coords in aff_tiles)
+                {
+                     cx = (int)(coords >> 16);
+                     cy = (int)(coords & 0xFFFF);
+
+                    if (temp[cx, cy] > temp[cx + 1, cy] + 1)
+                    {
+                        temp[cx + 1, cy]++;
+                        changes++;
+                        new_aff_tiles.Add(coords);
+                        new_aff_tiles.Add((ulong)(cx + 1 << 16 | cy));
+                    }
+
+                    if (temp[cx, cy] > temp[cx - 1, cy] + 1)
+                    {
+                        temp[cx - 1, cy]++;
+                        changes++;
+                        new_aff_tiles.Add(coords);
+                        new_aff_tiles.Add((ulong)(cx - 1 << 16 | cy));
+                    }
+
+                    if (temp[cx, cy] > temp[cx, cy + 1] + 1)
+                    {
+                        temp[cx, cy + 1]++;
+                        changes++;
+                        new_aff_tiles.Add(coords);
+                        new_aff_tiles.Add((ulong)(cx << 16 | cy + 1));
+                    }
+
+                    if (temp[cx, cy] > temp[cx, cy - 1] + 1)
+                    {
+                        temp[cx, cy - 1]++;
+                        changes++;
+                        new_aff_tiles.Add(coords);
+                        new_aff_tiles.Add((ulong)(cx << 16 | cy - 1));
+                    }
+                }
+
+                aff_tiles.Clear();
+                aff_tiles.AddRange(new_aff_tiles);
+                new_aff_tiles.Clear();
+                it++;
+            }
+
+            of_horrors.Stop();
+            Debug.WriteLine("done. Made " + it + " iterations, took " + of_horrors.ElapsedMilliseconds + "ms.");
+            Debug.Write("Applying temporary array to cells...");
+            of_horrors.Restart();
+
+            for (int cell_x = 0; cell_x < 3; cell_x++)
+            {
+                for (int cell_y = 0; cell_y < 3; cell_y++)
+                {
+                    rel_z = z - cells[cell_x, cell_y, cell_z].Z;
+
+                    for (int x = 0; x < wm.CELL_WIDTH; x++)
+                    {
+                        for (int y = 0; y < wm.CELL_HEIGHT; y++)
+                        {
+                            cells[cell_x, cell_y, cell_z].light_level[x, y, rel_z] = temp[cell_x * wm.CELL_WIDTH + x, cell_y * wm.CELL_WIDTH + y];
+                        }
+                    }
+
+                }
+            }
+
+            of_horrors.Stop();
+            Debug.WriteLine("done. Took " + of_horrors.ElapsedMilliseconds + "ms.");
+            Debug.Write("Applying sources to ItemList...");
+            of_horrors.Restart();
+
+            foreach (LightSource ls in sources) 
+            {
+                ls.SetRecalculated();
+                ItemList.Remove(ls.GUID);
+                ItemList.Add(ls.GUID, ls);
+            }
+
+            sun_level_changed = false;
+
+            of_horrors.Stop();
+            Debug.WriteLine("done. Took " + of_horrors.ElapsedMilliseconds + "ms.");
+
+            Debug.WriteLine("");
+            Debug.WriteLine("END LIGHTMAP UPDATE");
         }
 
         public String ComposeLookAt(int abs_x, int abs_y, int abs_z)
@@ -1445,6 +1671,10 @@ namespace ShootyShootyRL.Mapping
                 i.Tick();
             }
 
+            
+           
+            UpdateLightMap();
+
         }
 
         
@@ -1650,7 +1880,12 @@ namespace ShootyShootyRL.Mapping
 
                     //Prepare for render...
                     con.setBackgroundFlag(TCODBackgroundFlag.Default);
-                    con.setForegroundColor(TCODColor.Interpolate(TCODColor.black, t.ForeColor, color_intensity));
+                    //con.setForegroundColor(TCODColor.Interpolate(TCODColor.black, t.ForeColor, color_intensity));
+
+                    //int testcol;
+                    int testcol = wm.GetCellFromCoordinates(abs_x, abs_y, Player.Z).GetLightLevel(abs_x, abs_y, Player.Z) * 21;
+                    //int testcol = !in_sunlight[cell_rel_x, cell_rel_y, Player.Z - cells[0,0,0].Z] ? 0 : 255;
+                    con.setForegroundColor(new TCODColor(testcol, testcol, testcol));
                     displ_string = t.DisplayString;
 
 

@@ -31,7 +31,8 @@ namespace ShootyShootyRL.Mapping
         ushort[, ,] tileMap;  //This is the three-dimensional byte array holding the ID of the tile
                               //at that location.
 
-        bool[, ,] discovered; 
+        bool[, ,] discovered;
+        public byte[, ,] light_level;
 
         public int X, Y, Z; //These the absolute coordinates of the upper left corner of the cell.
         public int CellID;  //This is the ID of the Cell in the WorldMap/Map context
@@ -119,6 +120,31 @@ namespace ShootyShootyRL.Mapping
             return discovered[abs_x - X, abs_y - Y, abs_z - Z];
         }
 
+        public void SetLightLevel(byte value, int abs_x, int abs_y, int abs_z)
+        {
+            if (abs_x < X || abs_x > X + world.CELL_WIDTH ||
+                abs_y < Y || abs_y > Y + world.CELL_HEIGHT ||
+                abs_z < Z || abs_z > Z + world.CELL_DEPTH)
+                throw new Exception("Error while trying to set light level for Tile at " + abs_x + ", " + abs_y + ", " + abs_z + ". Not in called Cell.");
+
+            light_level[abs_x - X, abs_y - Y, abs_z - Z] = value;
+        }
+
+        public byte GetLightLevel(int abs_x, int abs_y, int abs_z)
+        {
+            //if (abs_x < X || abs_x > X + world.CELL_WIDTH ||
+            //    abs_y < Y || abs_y > Y + world.CELL_HEIGHT ||
+            //    abs_z < Z || abs_z > Z + world.CELL_DEPTH)
+            //    throw new Exception("Error while trying to retrieve light level for Tile at " + abs_x + ", " + abs_y + ", " + abs_z + ". Not in called Cell.");
+
+            return light_level[abs_x - X, abs_y - Y, abs_z - Z];
+        }
+
+        public void ResetLightLevel()
+        {
+            light_level = new byte[world.CELL_WIDTH, world.CELL_HEIGHT, world.CELL_DEPTH];
+        }
+
         /// <summary>
         /// This function generates the tilemap for this cell.
         /// </summary>
@@ -126,6 +152,7 @@ namespace ShootyShootyRL.Mapping
         {
             tileMap = new ushort[world.CELL_WIDTH, world.CELL_HEIGHT, world.CELL_DEPTH];
             discovered = new bool[world.CELL_WIDTH, world.CELL_HEIGHT, world.CELL_DEPTH];
+            light_level = new byte[world.CELL_WIDTH, world.CELL_HEIGHT, world.CELL_DEPTH];
 
             for (int x = 0; x < world.CELL_WIDTH; x++)
             {
@@ -148,6 +175,7 @@ namespace ShootyShootyRL.Mapping
         {
             tileMap = new ushort[0,0,0];
             discovered = new bool[0, 0, 0];
+            light_level = new byte[0, 0, 0];
             GC.Collect();
         }
     }

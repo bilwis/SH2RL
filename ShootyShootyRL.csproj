@@ -53,6 +53,7 @@
     <Compile Include="Objects\Item.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Systems\Dialog.cs" />
+    <Compile Include="Objects\LightSource.cs" />
     <Compile Include="Systems\Particle.cs" />
     <Compile Include="Systems\ParticleEmitter.cs" />
     <Compile Include="Util.cs" />

@@ -36,11 +36,11 @@ namespace ShootyShootyRL.Mapping
 
         public int CELL_WIDTH = 200;
         public int CELL_HEIGHT = 200;
-        public int CELL_DEPTH = 20;
+        public int CELL_DEPTH = 5;
 
         public int CELLS_X = 10;
         public int CELLS_Y = 10;
-        public int CELLS_Z = 6;
+        public int CELLS_Z = 20;
 
         public int GLOBAL_WIDTH;
         public int GLOBAL_HEIGHT;
