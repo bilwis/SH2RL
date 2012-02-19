@@ -597,12 +597,31 @@ namespace ShootyShootyRL
             //map.AddCreature(testai2);
 
             //Item test_item = new Item(1299, 1299, map.DropObject(1299, 1299, 35), "Shimmering rock", "A shining polished rock which seems to change color when you look at it.", (char)'*');
-           
             //LightSource test_item = new LightSource(1299, 1299, map.DropObject(1299, 1299, 35), 12, "Shimmering Rock", "A shining polished rock which seems to change color when you look at it.", (char)'*');
             //test_item_guid = test_item.GUID;
             //test_item.Init(TCODColor.red, Out);
             //test_item.Activate();
             //map.AddItem(test_item);
+
+            LightSource test_item2 = new LightSource(1295, 1310, map.DropObject(1299, 1299, 35), 15, "Shimmering Rock", "A shining polished rock which seems to change color when you look at it.", (char)'*');
+            test_item2.Init(TCODColor.blue, Out);
+            test_item2.Activate();
+            map.AddItem(test_item2);
+
+            LightSource test_item3 = new LightSource(1315, 1283, map.DropObject(1299, 1299, 35), 10, "Shimmering Rock", "A shining polished rock which seems to change color when you look at it.", (char)'*');
+            test_item3.Init(TCODColor.green, Out);
+            test_item3.Activate();
+            map.AddItem(test_item3);
+
+            LightSource test_item4 = new LightSource(1315, 1319, map.DropObject(1299, 1299, 35), 15, "Shimmering Rock", "A shining polished rock which seems to change color when you look at it.", (char)'*');
+            test_item4.Init(TCODColor.orange, Out);
+            test_item4.Activate();
+            map.AddItem(test_item4);
+
+            LightSource test_item5 = new LightSource(1291, 1283, map.DropObject(1299, 1299, 35), 10, "Shimmering Rock", "A shining polished rock which seems to change color when you look at it.", (char)'*');
+            test_item5.Init(TCODColor.yellow, Out);
+            test_item5.Activate();
+            map.AddItem(test_item5);
         }
 
         public void Save()
@@ -883,10 +902,24 @@ namespace ShootyShootyRL
 
             if (key.KeyCode == TCODKeyCode.F11)
             {
-                LightSource ls = (LightSource)map.ItemList[test_item_guid];
-                map.ItemList.Remove(test_item_guid);
-                ls.SetPosition(player.X, player.Y, player.Z);
-                map.ItemList.Add(test_item_guid, ls);
+                List<LightSource> templ = new List<LightSource>();
+
+                foreach (Item i in map.ItemList.Values)
+                {
+                    if (i.GetType() == typeof(LightSource))
+                    {
+                        LightSource l = (LightSource)i;
+                        l.SetPosition(l.X, l.Y, l.Z);
+                        templ.Add(l);
+                    }
+
+                }
+
+                foreach (LightSource ls in templ)
+                {
+                    map.ItemList.Remove(ls.GUID);
+                    map.ItemList.Add(ls.GUID, ls);
+                }
             }
 
             if (key.KeyCode == TCODKeyCode.F12)
@@ -962,6 +995,9 @@ namespace ShootyShootyRL
             main.setForegroundColor(TCODColor.white);
             main.print(2, 0, "Turn: " + turn + " | Gameturn: " + gameTurn);
             main.print(2, 1, "Z_LEVEL: " + player.Z);
+            string mem_use = "Memory Usage: " + System.Environment.WorkingSet / 1048576 + " MB";
+            main.print(WINDOW_WIDTH - (mem_use.Length +1), 1, mem_use);
+            
 
             if (map.initialized)
                 main.setForegroundColor(TCODColor.green);

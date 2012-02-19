@@ -96,6 +96,19 @@ namespace ShootyShootyRL.Objects
                 recalc = true;
         }
 
+        public override bool Init(libtcod.TCODColor fore, MessageHandler messageHandler)
+        {
+            if (initialized)
+                return false;
+
+            ForeColor = fore;
+            _messageHandler = messageHandler;
+            Activate();
+
+            initialized = true;
+            return true;
+        }
+
         public new bool Tick()
         {
             //Random rand = new Random();
@@ -115,6 +128,8 @@ namespace ShootyShootyRL.Objects
 
         public void SetLevel(byte level)
         {
+            //TODO: Handle properly in map
+
             prev_level = level;
             this.level = level;
             if (active)
