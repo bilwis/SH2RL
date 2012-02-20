@@ -32,7 +32,7 @@ namespace ShootyShootyRL.Mapping
                               //at that location.
 
         bool[, ,] discovered;
-        public byte[, ,] light_level;
+        public int[, ,] light_level;
 
         public int X, Y, Z; //These the absolute coordinates of the upper left corner of the cell.
         public int CellID;  //This is the ID of the Cell in the WorldMap/Map context
@@ -120,7 +120,7 @@ namespace ShootyShootyRL.Mapping
             return discovered[abs_x - X, abs_y - Y, abs_z - Z];
         }
 
-        public void SetLightLevel(byte value, int abs_x, int abs_y, int abs_z)
+        public void SetLightLevel(int value, int abs_x, int abs_y, int abs_z)
         {
             if (abs_x < X || abs_x > X + world.CELL_WIDTH ||
                 abs_y < Y || abs_y > Y + world.CELL_HEIGHT ||
@@ -130,7 +130,7 @@ namespace ShootyShootyRL.Mapping
             light_level[abs_x - X, abs_y - Y, abs_z - Z] = value;
         }
 
-        public void LowerLightLevel(byte value, int abs_x, int abs_y, int abs_z)
+        public void LowerLightLevel(int value, int abs_x, int abs_y, int abs_z)
         {
             if (abs_x < X || abs_x > X + world.CELL_WIDTH ||
                 abs_y < Y || abs_y > Y + world.CELL_HEIGHT ||
@@ -143,7 +143,7 @@ namespace ShootyShootyRL.Mapping
                 light_level[abs_x - X, abs_y - Y, abs_z - Z] = 0;
         }
 
-        public void RaiseLightLevel(byte value, int abs_x, int abs_y, int abs_z)
+        public void RaiseLightLevel(int value, int abs_x, int abs_y, int abs_z)
         {
             if (abs_x < X || abs_x > X + world.CELL_WIDTH ||
                 abs_y < Y || abs_y > Y + world.CELL_HEIGHT ||
@@ -156,7 +156,7 @@ namespace ShootyShootyRL.Mapping
                 light_level[abs_x - X, abs_y - Y, abs_z - Z] = 255;
         }
 
-        public byte GetLightLevel(int abs_x, int abs_y, int abs_z)
+        public int GetLightLevel(int abs_x, int abs_y, int abs_z)
         {
             //if (abs_x < X || abs_x > X + world.CELL_WIDTH ||
             //    abs_y < Y || abs_y > Y + world.CELL_HEIGHT ||
@@ -168,7 +168,7 @@ namespace ShootyShootyRL.Mapping
 
         public void ResetLightLevel()
         {
-            light_level = new byte[world.CELL_WIDTH, world.CELL_HEIGHT, world.CELL_DEPTH];
+            light_level = new int[world.CELL_WIDTH, world.CELL_HEIGHT, world.CELL_DEPTH];
         }
 
         /// <summary>
@@ -178,7 +178,7 @@ namespace ShootyShootyRL.Mapping
         {
             tileMap = new ushort[world.CELL_WIDTH, world.CELL_HEIGHT, world.CELL_DEPTH];
             discovered = new bool[world.CELL_WIDTH, world.CELL_HEIGHT, world.CELL_DEPTH];
-            light_level = new byte[world.CELL_WIDTH, world.CELL_HEIGHT, world.CELL_DEPTH];
+            light_level = new int[world.CELL_WIDTH, world.CELL_HEIGHT, world.CELL_DEPTH];
 
             for (int x = 0; x < world.CELL_WIDTH; x++)
             {
@@ -201,7 +201,7 @@ namespace ShootyShootyRL.Mapping
         {
             tileMap = new ushort[0,0,0];
             discovered = new bool[0, 0, 0];
-            light_level = new byte[0, 0, 0];
+            light_level = new int[0, 0, 0];
             GC.Collect();
         }
     }

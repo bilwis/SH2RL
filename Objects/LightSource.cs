@@ -121,8 +121,21 @@ namespace ShootyShootyRL.Objects
             return true;
         }
 
+        public void SetRecalculated(bool value)
+        {
+            prev_level = level;
+            prev_x = x;
+            prev_y = y;
+            prev_z = z;
+            recalc = value;
+        }
+
         public void SetRecalculated()
         {
+            prev_level = level;
+            prev_x = x;
+            prev_y = y;
+            prev_z = z;
             recalc = false;
         }
 
@@ -130,7 +143,7 @@ namespace ShootyShootyRL.Objects
         {
             //TODO: Handle properly in map
 
-            prev_level = level;
+            prev_level = this.level;
             this.level = level;
             if (active)
                 recalc = true;

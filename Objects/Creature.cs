@@ -4,6 +4,8 @@ using System.Linq;
 using System.Text;
 using libtcod;
 
+using System.Diagnostics;
+
 using ShootyShootyRL.Mapping;
 using ShootyShootyRL.Objects.Bodies;
 
@@ -192,7 +194,6 @@ namespace ShootyShootyRL.Objects
         public override void SetPosition(int x, int y, int z)
         {
             Lightsource.SetPosition(x, y, z);
-
             base.SetPosition(x, y, z);
         }
 

@@ -561,7 +561,7 @@ namespace ShootyShootyRL
 
             player = new Player(1300, 1300, 35, "Player", "A ragged and scruffy-looking individual.", '@', new Body(BODY_DEF_HUMAN));
 
-            player.RegisterLightSource(new LightSource(1300, 1300, 35, 12, "Torch", "A torch.", '!'));
+            player.RegisterLightSource(new LightSource(1300, 1300, 35, 10, "Torch", "A torch.", '!'));
             player.Init(TCODColor.yellow, Out, player_faction, new Objects.Action(ActionType.Idle, null, player, 0.0d));
 
             Out.SendMessage("Welcome to [insert game name here]!", Message.MESSAGE_WELCOME);
@@ -603,7 +603,7 @@ namespace ShootyShootyRL
             //test_item.Activate();
             //map.AddItem(test_item);
 
-            LightSource test_item2 = new LightSource(1295, 1310, map.DropObject(1299, 1299, 35), 15, "Shimmering Rock", "A shining polished rock which seems to change color when you look at it.", (char)'*');
+            LightSource test_item2 = new LightSource(1295, 1310, map.DropObject(1299, 1299, 35), 10, "Shimmering Rock", "A shining polished rock which seems to change color when you look at it.", (char)'*');
             test_item2.Init(TCODColor.blue, Out);
             test_item2.Activate();
             map.AddItem(test_item2);
@@ -613,7 +613,7 @@ namespace ShootyShootyRL
             test_item3.Activate();
             map.AddItem(test_item3);
 
-            LightSource test_item4 = new LightSource(1315, 1319, map.DropObject(1299, 1299, 35), 15, "Shimmering Rock", "A shining polished rock which seems to change color when you look at it.", (char)'*');
+            LightSource test_item4 = new LightSource(1315, 1319, map.DropObject(1299, 1299, 35), 10, "Shimmering Rock", "A shining polished rock which seems to change color when you look at it.", (char)'*');
             test_item4.Init(TCODColor.orange, Out);
             test_item4.Activate();
             map.AddItem(test_item4);
@@ -909,7 +909,9 @@ namespace ShootyShootyRL
                     if (i.GetType() == typeof(LightSource))
                     {
                         LightSource l = (LightSource)i;
-                        l.SetPosition(l.X, l.Y, l.Z);
+                        //l.SetPosition(l.X, l.Y, l.Z);
+                        //l.SetLevel((byte)(l.LightLevel - 1));
+                        l.SetRecalculated(true);
                         templ.Add(l);
                     }
 
