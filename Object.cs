@@ -105,6 +105,16 @@ namespace ShootyShootyRL
         protected String _name;
         protected String _desc;
 
+        protected bool _visible;
+
+        public bool IsVisible
+        {
+            get
+            {
+                return _visible;
+            }
+        }
+
         public String Name
         {
             get
@@ -133,6 +143,8 @@ namespace ShootyShootyRL
 
         public abstract bool Save();
 
+        public abstract void SetVisible(bool value);
+
         public virtual bool Init(TCODColor fore, MessageHandler messageHandler)
         {
             if (initialized)
@@ -141,6 +153,7 @@ namespace ShootyShootyRL
             ForeColor = fore;
             _messageHandler = messageHandler;
 
+            _visible = true;
             initialized = true;
             return true;
         }

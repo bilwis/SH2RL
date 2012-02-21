@@ -35,10 +35,16 @@ namespace ShootyShootyRL.Objects
         public override bool Save()
         {
             initialized = false;
+            _visible = false;
             return true;
         }
 
-        public bool Tick()
+        public override void SetVisible(bool value)
+        {
+            _visible = value;
+        }
+
+        public virtual bool Tick()
         {
             //Random rand = new Random();
 

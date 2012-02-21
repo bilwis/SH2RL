@@ -57,6 +57,9 @@ namespace ShootyShootyRL.Mapping
         public static int VIEW_DISTANCE_CREATURES_UP_Z = 0;
 
         public static int MAX_LIGHT_LEVEL = 25;
+        public static int MIN_LIGHT_LEVEL = 1;
+        public static float LIGHT_LEVEL_VARIANCE_UPPER = 0.15f;
+        public static float LIGHT_LEVEL_VARIANCE_LOWER = 0.15f;
 
         private int currentCellId;
 
@@ -65,8 +68,11 @@ namespace ShootyShootyRL.Mapping
         private SQLiteConnection dbconn;
 
         private TCODMap tcod_map;
+
+        private int[,] light_tint;
+
         private bool[, ,] in_sunlight;
-        private byte sun_light = 12;
+        private byte sun_light = 25;
         private byte prev_sun_light = 0;
         private bool sun_level_changed = false;
 
@@ -93,8 +99,8 @@ namespace ShootyShootyRL.Mapping
             //LightSources = new Dictionary<string, LightSource>();
             this.facman = facman;
 
-            //tcod_map = new TCODMap(vp_width, vp_height);
             tcod_map = new TCODMap(3 * wm.CELL_WIDTH, 3 * wm.CELL_HEIGHT);
+            light_tint = new int[vp_width, vp_height];
 
             cells = new Cell[3, 3, 3];
             centerAndLoad(player);
@@ -442,48 +448,6 @@ namespace ShootyShootyRL.Mapping
 
             load_after = new bool[3, 3, 3]; //reset
             initialized = true;             //set finished
-        }
-
-        public void RecalcSunlight()
-        {
-            in_sunlight = updateSunMap();   //update the Sun map
-            addSunlight(in_sunlight, sun_light);
-            prev_sun_light = sun_light;
-            sun_level_changed = false;
-        }
-
-        private void removeSunlight(bool[, ,] sl_array, int level)
-        {
-            for (int x = cells[0, 0, 0].X; x < cells[0, 0, 0].X + 3 * wm.CELL_WIDTH; x++)
-            {
-                for (int y = cells[0, 0, 0].Y; y < cells[0, 0, 0].Y + 3 * wm.CELL_HEIGHT; y++)
-                {
-                    for (int z = cells[0, 0, 0].Z; z < cells[0, 0, 2].Z; z++)
-                    {
-                        if (sl_array[x - cells[0, 0, 0].X, y - cells[0, 0, 0].Y, z - cells[0, 0, 0].Z])
-                            wm.GetCellFromCoordinates(x, y, z).LowerLightLevel(
-                                level, x, y, z);
-
-                    }
-                }
-            }
-        }
-
-        private void addSunlight(bool[, ,] sl_array, int level)
-        {
-            for (int x = cells[0, 0, 0].X; x < cells[0, 0, 0].X + 3 * wm.CELL_WIDTH; x++)
-            {
-                for (int y = cells[0, 0, 0].Y; y < cells[0, 0, 0].Y + 3 * wm.CELL_HEIGHT; y++)
-                {
-                    for (int z = cells[0, 0, 0].Z; z < cells[0, 0, 2].Z; z++)
-                    {
-                        if (sl_array[x - cells[0, 0, 0].X, y - cells[0, 0, 0].Y, z - cells[0, 0, 0].Z])
-                            wm.GetCellFromCoordinates(x, y, z).RaiseLightLevel(
-                                level, x, y, z);
-
-                    }
-                }
-            }
         }
 
         /// <summary>
@@ -1228,46 +1192,68 @@ namespace ShootyShootyRL.Mapping
             return true;
         }
 
+        /// <summary>
+        /// This function updates the TCODMap object which holds information on transparency
+        /// and passability of all tiles on the player level for FOV/Pathing calculations.
+        /// </summary>
         private void updateTCODMap()
         {
+            //These two dictionaries hold all tiles (that is, their ushort ID's)
+            //and wheter or not they block LOS or Movement
             Dictionary<ushort, bool> los_blocking = new Dictionary<ushort, bool>();
             Dictionary<ushort, bool> move_blocking = new Dictionary<ushort, bool>();
 
+            //Retrieve the blocking/transparency data
             los_blocking = wm.GetLOSBlockerTiles();
             move_blocking = wm.GetMoveBlockerTiles();
 
             ushort curr_tile = 0;
-            int z = DropObject(Player.X, Player.Y, Player.Z + 1);
+            int z = DropObject(Player.X, Player.Y, Player.Z + 1);   //get the player level
 
             int abs_x, abs_y;
             abs_x = cells[0, 0, 0].X;
             abs_y = cells[0, 0, 0].Y;
 
+            //Iterate through the entire TCODMap (which is the size of the loaded map (without z-axis),
+            // i.e. 3x3 cells) and set the properties.
             for (int x = 0; x < tcod_map.getWidth() - 1; x++)
             {
                 for (int y = 0; y < tcod_map.getHeight() - 1; y++)
                 {
-                    curr_tile = getTileIDFromCells(abs_x + x, abs_y + y, z);
-                    tcod_map.setProperties(x, y, !los_blocking[curr_tile], !move_blocking[curr_tile]);
+                    curr_tile = getTileIDFromCells(abs_x + x, abs_y + y, z);    //Get the tile ID
+                    tcod_map.setProperties(x, y, !los_blocking[curr_tile],      //Set the properties
+                        !move_blocking[curr_tile]);                             // (from the dicts)
                 }
             }
 
         }
 
+        /// <summary>
+        /// This function calulates a map which contains the information wheter or not
+        /// a tile is in direct sunlight.
+        /// </summary>
+        /// <returns>A three-dimensional bool array whose values are true if the tile at the 
+        /// relative (to the upper left corner of the loaded map) position is in sunlight.</returns>
         private bool[, ,] updateSunMap()
         {
             bool[, ,] temp_in_sunlight = new bool[wm.CELL_WIDTH * 3, wm.CELL_HEIGHT * 3, wm.CELL_DEPTH * 3];
 
+            //If all cells are below the ground level, abort calculation,
+            //return an all-false array
             if (cells[0, 0, 2].Z < wm.GROUND_LEVEL)
                 return temp_in_sunlight;
+
             int rel_x, rel_z, rel_y;
 
+            //Iterate through all loaded tiles from top to bottom
             for (int x = cells[0, 0, 0].X; x < cells[0, 0, 0].X + 3 * wm.CELL_WIDTH; x++)
             {
                 for (int y = cells[0, 0, 0].Y; y < cells[0, 0, 0].Y + 3 * wm.CELL_HEIGHT; y++)
                 {
                     for (int z = cells[0, 0, 2].Z + wm.CELL_DEPTH - 1; z > cells[0, 0, 0].Z; z--)
                     {
+                        //If z is below ground level, it can't be in sunlight
+                        //TODO: This is not a final decision, but it saves a lot of performance.
                         if (z < wm.GROUND_LEVEL)
                             break;
 
@@ -1275,19 +1261,82 @@ namespace ShootyShootyRL.Mapping
                         rel_y = y - cells[0, 0, 0].Y;
                         rel_z = z - cells[0, 0, 0].Z;
 
+                        //The tiles on the very top of the loaded map are always in sunlight
                         if (z == cells[0, 0, 2].Z + wm.CELL_DEPTH - 1)
                         {
                             temp_in_sunlight[rel_x, rel_y, rel_z] = true;
                             continue;
                         }
 
+                        //For other tiles, if the tile above doesn't block LOS and is in sunlight,
+                        // the current tile is also in sunlight
                         if (!wm.GetCellFromCoordinates(x, y, z + 1).GetTile(x, y, z + 1).BlocksLOS && temp_in_sunlight[rel_x, rel_y, rel_z + 1])
                             temp_in_sunlight[rel_x, rel_y, rel_z] = true;
                     }
                 }
             }
 
+            //Return the result array
             return temp_in_sunlight;
+        }
+
+        /// <summary>
+        /// This function initiates the recalculation of the sun light level.
+        /// </summary>
+        public void RecalcSunlight()
+        {
+            in_sunlight = updateSunMap();       //update the Sun map
+            addSunlight(in_sunlight, sun_light);//apply it to the arrays
+            prev_sun_light = sun_light;         //store the previous light level
+            sun_level_changed = false;
+        }
+
+        /// <summary>
+        /// This function lowers the light levels by value in all tiles where the sl_array is true.
+        /// </summary>
+        /// <param name="sl_array">The array holding the information if the tile is in sunlight.</param>
+        /// <param name="level">The light level to substract.</param>
+        private void removeSunlight(bool[, ,] sl_array, int level)
+        {
+            //Iterate though all coordinates (from the top left of the loaded cells on)
+            for (int x = cells[0, 0, 0].X; x < cells[0, 0, 0].X + 3 * wm.CELL_WIDTH; x++)
+            {
+                for (int y = cells[0, 0, 0].Y; y < cells[0, 0, 0].Y + 3 * wm.CELL_HEIGHT; y++)
+                {
+                    for (int z = cells[0, 0, 0].Z; z < cells[0, 0, 2].Z; z++)
+                    {
+                        //If tile is in coordinates, lower its light level by the given value
+                        if (sl_array[x - cells[0, 0, 0].X, y - cells[0, 0, 0].Y, z - cells[0, 0, 0].Z])
+                            wm.GetCellFromCoordinates(x, y, z).LowerLightLevel(
+                                level, x, y, z);
+
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// This function raises the light levels by value in all tiles where the sl_array is true.
+        /// </summary>
+        /// <param name="sl_array">The array holding the information if the tile is in sunlight.</param>
+        /// <param name="level">The light level to add.</param>
+        private void addSunlight(bool[, ,] sl_array, int level)
+        {
+            //Iterate though all coordinates (from the top left of the loaded cells on)
+            for (int x = cells[0, 0, 0].X; x < cells[0, 0, 0].X + 3 * wm.CELL_WIDTH; x++)
+            {
+                for (int y = cells[0, 0, 0].Y; y < cells[0, 0, 0].Y + 3 * wm.CELL_HEIGHT; y++)
+                {
+                    for (int z = cells[0, 0, 0].Z; z < cells[0, 0, 2].Z; z++)
+                    {
+                        //If tile is in coordinates, raise its light level by the given value
+                        if (sl_array[x - cells[0, 0, 0].X, y - cells[0, 0, 0].Y, z - cells[0, 0, 0].Z])
+                            wm.GetCellFromCoordinates(x, y, z).RaiseLightLevel(
+                                level, x, y, z);
+
+                    }
+                }
+            }
         }
 
         /// <summary>
@@ -1359,8 +1408,6 @@ namespace ShootyShootyRL.Mapping
                 int prev_rel_ls_y = ls.PrevY - abs_y;
 
                 //REMOVE PREVIOUS EFFECTS
-
-                //(if warranted)
 
                 //if (!(ls.PreviousLightLevel == ls.LightLevel && ls.X == ls.PrevX && ls.Y == ls.PrevY && ls.Z == ls.PrevZ))
                 //{
@@ -1524,8 +1571,124 @@ namespace ShootyShootyRL.Mapping
             sun_level_changed = false;
         }
 
+        public void UpdateTintMap()
+        {
+            List<LightSource> sources = new List<LightSource>();    //The sources list
+
+            int z = Player.Z;
+
+            #region "Viewport setup"
+
+            int top; //Y
+            int left; //X
+            int right;
+            int bottom;
+
+            top = Player.Y - (vp_height / 2);
+            bottom = top + vp_height;
+
+            left = Player.X - (vp_width / 2);
+            right = left + vp_width;
+
+            if (top >= bottom || left >= right)
+                return;
+
+            if (top < 0)
+            {
+                bottom -= top; //Bottom - Top (which is negative): ex.: new Bottom (10-(-5) = 15)
+                top = 0;
+            }
+
+            if (bottom > wm.GLOBAL_HEIGHT)
+            {
+                top -= (bottom - wm.GLOBAL_HEIGHT); //ex.: bottom = 15, Globalheight = 10, Top = 5; => Top = 5 - (15-10) = 0
+                bottom = wm.GLOBAL_HEIGHT;
+            }
+
+            if (left < 0)
+            {
+                right -= left;
+                left = 0;
+            }
+
+            if (right > wm.GLOBAL_WIDTH)
+            {
+                left -= (right - wm.GLOBAL_WIDTH);
+                right = wm.GLOBAL_WIDTH;
+            }
+
+            #endregion
+
+            int rel_x, rel_y;
+            int curr_rel_x, curr_rel_y;
+
+            byte[,] red = new byte[vp_width, vp_height];
+            byte[,] green = new byte[vp_width, vp_height];
+            byte[,] blue = new byte[vp_width, vp_height];
+
+            //Fetch them viable lightsources!
+            foreach (Item i in ItemList.Values)
+            {
+                if (i.GetType() == typeof(LightSource))
+                {
+                    LightSource s = (LightSource)i;
+                    if (s.Z == z)
+                        sources.Add(s);
+                }
+            }
+
+            //Do the actual calculations
+            foreach (LightSource ls in sources)
+            {
+                rel_x = ls.X - left;
+                rel_y = ls.Y - top;
+
+                tcod_map.computeFov(ls.X - cells[0,0,0].X, ls.Y - cells[0,0,0].Y, ls.LightLevel, true, TCODFOVTypes.RestrictiveFov);
+
+                for (int x = -ls.LightLevel; x < ls.LightLevel+1; x++)
+                {
+                    for (int y = -ls.LightLevel; y < ls.LightLevel; y++)
+                    {
+                        curr_rel_x = rel_x +x;
+                        curr_rel_y = rel_y +y;
+                        if (Math.Abs(x) + Math.Abs(y) < ls.LightLevel)
+                        {
+                            if (curr_rel_x > 0 && curr_rel_x < vp_width 
+                                && curr_rel_y > 0 && curr_rel_y < vp_height
+                                && tcod_map.isInFov(ls.X + x - cells[0, 0, 0].X, ls.Y + y - cells[0, 0, 0].Y))
+                            {
+                                red[curr_rel_x, curr_rel_y] = (byte)((red[curr_rel_x, curr_rel_y] + ls.ForeColor.Red) / 2);
+                                green[curr_rel_x, curr_rel_y] = (byte)((green[curr_rel_x, curr_rel_y] + ls.ForeColor.Green) / 2);
+                                blue[curr_rel_x, curr_rel_y] = (byte)((blue[curr_rel_x, curr_rel_y] + ls.ForeColor.Blue) / 2);
+                            }
+                        }
+                    }
+                }
+            }
+
+            for (int x = 0; x < vp_width; x++)
+            {
+                for (int y = 0; y < vp_height; y++)
+                {
+                    //light_tint[x, y] = Util.EncodeRGB(
+                    //    red[x, y] == 0 ? 128 : red[x, y],
+                    //    green[x, y] == 0 ? 128 : green[x, y],
+                    //    blue[x, y] == 0 ? 128 : blue[x, y]);
+
+                    light_tint[x, y] = Util.EncodeRGB(red[x, y], green[x, y], blue[x, y]);
+                }
+            }
+        }
+
+        /// <summary>
+        /// This function creates a string compiled from the descriptions of the items,
+        /// the creatures and the tile at the given coordinates.
+        /// </summary>
         public String ComposeLookAt(int abs_x, int abs_y, int abs_z)
         {
+            if (!isCoordinateLoaded(abs_x, abs_y, abs_z))
+                return null;
+
             String temp = "";
 
             foreach (Creature c in CreatureList.Values)
@@ -1552,22 +1715,6 @@ namespace ShootyShootyRL.Mapping
         #endregion
 
         #region "Creature Handling"
-
-        [Obsolete("Use DropObject instead, this function only checks from the topmost tile")]
-        public int GetGround(int abs_x, int abs_y)
-        {
-            string t = "Air", t2;
-
-            for (int i = cells[1, 1, 2].Z + wm.CELL_DEPTH - 1; i > cells[1, 1, 0].Z; i--)
-            {
-                t2 = t;
-                t = getTileFromCells(abs_x, abs_y, i).Name;
-                if (t != "Air" && t2 == "Air")
-                    return i + 1;
-            }
-
-            return -1;
-        }
 
         /// <summary>
         /// This function determines the z-coordinate of object if dropped at the given location.
@@ -1746,6 +1893,10 @@ namespace ShootyShootyRL.Mapping
 
         #endregion
 
+        /// <summary>
+        /// This function is called every game round and updates all creatures and items currently loaded in the map as well
+        /// as the light levels if necessary.
+        /// </summary>
         public void Tick()
         {
             //Tick all loaded creatures
@@ -1775,11 +1926,16 @@ namespace ShootyShootyRL.Mapping
 
         }
 
-
+        /// <summary>
+        /// This function renders the particles of the given particle emitter onto the given console object.
+        /// </summary>
         public void RenderParticles(ParticleEmitter emitter, TCODConsole con)
         {
+            //Check if emitter is on player level
             if (emitter.abs_z != Player.Z)
                 return;
+
+            #region "Viewport setup"
 
             int top; //Y
             int left; //X
@@ -1818,33 +1974,18 @@ namespace ShootyShootyRL.Mapping
                 left -= (right - wm.GLOBAL_WIDTH);
                 right = wm.GLOBAL_WIDTH;
             }
-            //Tile t;
-            //string displ_string;
+
+            #endregion
+
+            //Iterate through the particles and render them
             foreach (Particle p in emitter.particles)
             {
                 if (tcod_map.isInFov((int)p.abs_x - cells[0, 0, 0].X, (int)p.abs_y - cells[0, 0, 0].Y))
                 {
-                    ////t = getTileFromCells((int)p.abs_x, (int)p.abs_y, emitter.abs_z);
-                    ////if (t.ForeColor == null)
-                    ////    continue;
-                    //con.setBackgroundFlag(TCODBackgroundFlag.Default);
-                    //con.setForegroundColor(TCODColor.pink);
-                    //displ_string = t.DisplayString;
-
-
-                    //if (t.BackColor != null)
-                    //{
-                    //    con.setBackgroundFlag(TCODBackgroundFlag.Set);
-                    //    con.setBackgroundColor(t.BackColor);
-                    //}
-
-                    //con.print(1 + ((int)p.abs_x - left), 1 + ((int)p.abs_y - top), displ_string);
-
                     con.setBackgroundFlag(TCODBackgroundFlag.Screen);
                     con.setBackgroundColor(TCODColor.Interpolate(TCODColor.black, p.color, p.intensity));
 
-                    con.print(1 + ((int)p.abs_x - left), 1 + ((int)p.abs_y - top), " "); // displ_string);
-
+                    con.print(1 + ((int)p.abs_x - left), 1 + ((int)p.abs_y - top), " "); 
                 }
 
             }
@@ -1908,6 +2049,9 @@ namespace ShootyShootyRL.Mapping
             int rel_x, rel_y;
             int cell_rel_x, cell_rel_y;
             Tile t;
+            TCODColor tinted_fore, tinted_back;
+
+            Random rand = new Random();
 
             int curr_z = Player.Z;
             abs_z = Player.Z - 1;
@@ -1930,18 +2074,11 @@ namespace ShootyShootyRL.Mapping
                     tilearr[abs_x - left, abs_y - top] = getTileIDFromCells(abs_x, abs_y, abs_z);
                 }
             }
+            //Update tint
+            UpdateTintMap();
 
             //Calculate the player's FOV
             tcod_map.computeFov(Player.X - cells[0, 0, 0].X, Player.Y - cells[0, 0, 0].Y, right - left, true, TCODFOVTypes.RestrictiveFov);
-
-            //for (abs_x = left; abs_x < right; abs_x++)
-            //{
-            //    for (abs_y = top; abs_y < bottom; abs_y++)
-            //    {
-            //        if (wm.GetCellFromCoordinates(abs_x, abs_y, abs_z).GetLightLevel(abs_x, abs_y, abs_z) == 0)
-            //            tcod_map.setInFov(abs_x - cells[0, 0, 0].X, abs_y - cells[0, 0, 0].Y, false);
-            //    }
-            //}
 
             float color_intensity = 1.0f;
             int light_level = 0;
@@ -1958,28 +2095,37 @@ namespace ShootyShootyRL.Mapping
                     cell_rel_x = abs_x - cells[0, 0, 0].X;
                     cell_rel_y = abs_y - cells[0, 0, 0].Y;
 
-                    //color_intensity = 1.0f;
+                    //The light level determines the "color intensity", that is the gradient between the 
+                    // actual color and TCODColor.black, with intensity=1.0 meaning all color and 0.0 meaning
+                    // all black.
+                    //Since the light level is additive, it is clamped to MAX_LIGHT_LEVEL
                     light_level = wm.GetCellFromCoordinates(abs_x, abs_y, Player.Z).GetLightLevel(abs_x, abs_y, Player.Z);
+                    //light_level = rand.Next((int)(light_level - (LIGHT_LEVEL_VARIANCE_LOWER * light_level)),
+                    //    (int)(light_level + (LIGHT_LEVEL_VARIANCE_UPPER * light_level)));
+                    
                     light_level = light_level > MAX_LIGHT_LEVEL ? MAX_LIGHT_LEVEL : light_level;
+                    light_level = light_level < MIN_LIGHT_LEVEL ? MIN_LIGHT_LEVEL : light_level;
+
                     color_intensity = (float)light_level / MAX_LIGHT_LEVEL;
 
-                    //Is visible?
+                    //Check if the tile is in viewport and not in darkness
                     if (!tcod_map.isInFov(cell_rel_x, cell_rel_y) || wm.GetCellFromCoordinates(abs_x, abs_y, Player.Z).GetLightLevel(abs_x, abs_y, Player.Z) == 0)
                     {
+                        //if it is: If the tile was seen (is discovered) before, have a little bit of it be rendered
                         if (wm.GetCellFromCoordinates(abs_x, abs_y, Player.Z).IsDiscovered(abs_x, abs_y, Player.Z))
-                            color_intensity = 0.05f;
-                        else
+                            color_intensity = (float)MIN_LIGHT_LEVEL / (float)MAX_LIGHT_LEVEL;
+                        else //or not
                             color_intensity = 0.0f;
                     }
                     else if (wm.GetCellFromCoordinates(abs_x, abs_y, Player.Z).GetLightLevel(abs_x, abs_y, Player.Z) > 0)
-                        wm.GetCellFromCoordinates(abs_x, abs_y, Player.Z).DiscoverTile(abs_x, abs_y, Player.Z);
+                        wm.GetCellFromCoordinates(abs_x, abs_y, Player.Z).DiscoverTile(abs_x, abs_y, Player.Z); //also if visible, discover!
 
                     //If current Tile is Air, skip ahead, because no hot rendering action is needed
                     if (tilearr[rel_x, rel_y] == 0) //Air Tile
                         continue;
 
                     //Retrieve the actual tile data
-                    //If tile is transparent, display the tile BELOW the player (floor)
+                    //If tile is transparent, display the tile BELOW (floor)
                     if (tcod_map.isTransparent(cell_rel_x, cell_rel_y))
                         t = wm.GetTileFromID(tilearr[rel_x, rel_y]);
                     else //the wall!
@@ -1990,21 +2136,20 @@ namespace ShootyShootyRL.Mapping
                         continue;
 
                     //Prepare for render...
+                    tinted_fore = t.ForeColor;//TCODColor.Interpolate(Util.DecodeRGB(light_tint[rel_x, rel_y]), t.ForeColor, 0.5f);
+
                     con.setBackgroundFlag(TCODBackgroundFlag.Default);
-                    con.setForegroundColor(TCODColor.Interpolate(TCODColor.black, t.ForeColor, color_intensity));
-
-                    //int testcol;
-                    //int testcol = wm.GetCellFromCoordinates(abs_x, abs_y, Player.Z).GetLightLevel(abs_x, abs_y, Player.Z) * 21;
-                    //int testcol = !in_sunlight[cell_rel_x, cell_rel_y, Player.Z - cells[0,0,0].Z] ? 0 : 255;
-                    //con.setForegroundColor(new TCODColor(testcol, testcol, testcol));
+                    con.setForegroundColor(TCODColor.Interpolate(TCODColor.black, tinted_fore, color_intensity));
                     displ_string = t.DisplayString;
-
 
                     if (t.BackColor != null)
                     {
-                        con.setBackgroundColor(TCODColor.Interpolate(TCODColor.black, t.BackColor, color_intensity));
+                        tinted_back = TCODColor.Interpolate(Util.DecodeRGB(light_tint[rel_x, rel_y]), t.BackColor, 0.5f);
+
+                        con.setBackgroundColor(TCODColor.Interpolate(TCODColor.black, tinted_back, color_intensity));
                         con.setBackgroundFlag(TCODBackgroundFlag.Set);
                     }
+
                     //DO IT!
                     debug_prints++;
                     con.print(con_x + (abs_x - left), con_y + (abs_y - top), displ_string);
@@ -2037,6 +2182,9 @@ namespace ShootyShootyRL.Mapping
             //RenderAll the items
             foreach (Item i in ItemList.Values)
             {
+                if (!i.IsVisible)
+                    continue;
+
                 if (i.Z >= curr_z - Map.VIEW_DISTANCE_CREATURES_DOWN_Z && i.Z <= curr_z + Map.VIEW_DISTANCE_CREATURES_UP_Z)
                 {
                     con.setForegroundColor(i.ForeColor);
@@ -2048,8 +2196,6 @@ namespace ShootyShootyRL.Mapping
             //DONE!
             return true;
         }
-
-
 
     }
 }

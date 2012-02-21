@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
+using libtcod;
+
 namespace ShootyShootyRL.Objects
 {
     [Serializable()]
@@ -105,11 +107,19 @@ namespace ShootyShootyRL.Objects
             _messageHandler = messageHandler;
             Activate();
 
+            _visible = true;
             initialized = true;
             return true;
         }
 
-        public new bool Tick()
+        public override bool Save()
+        {
+            Deactivate();
+
+            return base.Save();
+        }
+
+        public override bool Tick()
         {
             //Random rand = new Random();
 

@@ -62,7 +62,10 @@ namespace ShootyShootyRL.Objects
         public double EMovementCost = 15;
         public double EDiagMovementCost = 19;
 
-
+        public override void SetVisible(bool value)
+        {
+            _visible = value;
+        } 
 
         public override void SetPosition(int x, int y, int z)
         {
