@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 
 using libtcod;
+using ShootyShootyRL.Mapping;
 
 namespace ShootyShootyRL.Objects
 {
@@ -165,7 +166,7 @@ namespace ShootyShootyRL.Objects
             recalc = false;
         }
 
-        public int[,] RecalulateLightmap()
+        public int[,] RecalulateLightmap(ref TCODMap los_map, int map_x, int map_y)
         {
             if (!recalc)
                 return Lightmap;
@@ -173,12 +174,17 @@ namespace ShootyShootyRL.Objects
             Lightmap = new int[LightRadius * 2, LightRadius * 2];
             int l;
 
+            los_map.computeFov(X-map_x, Y-map_y, LightRadius, true, TCODFOVTypes.RestrictiveFov);
+
             for (int x = -LightRadius; x < LightRadius; x++)
             {
                 for (int y = -LightRadius; y < LightRadius; y++)
                 {
-                    l = (int)Math.Round((float)level - Math.Pow(Util.CalculateDistance(x, y, 0, 0),1.5f));
-                    Lightmap[x + LightRadius, y + LightRadius] = l >= 0 ? l : 0;
+                    if (los_map.isInFov(X-map_x+x, Y-map_y+y))
+                    {
+                        l = (int)Math.Round((float)level - Math.Pow(Util.CalculateDistance(x, y, 0, 0),1.5f));
+                        Lightmap[x + LightRadius, y + LightRadius] = l >= 0 ? l : 0;
+                    }
                 }
             }
 

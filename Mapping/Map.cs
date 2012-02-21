@@ -56,7 +56,7 @@ namespace ShootyShootyRL.Mapping
         public static int VIEW_DISTANCE_CREATURES_DOWN_Z = 0;
         public static int VIEW_DISTANCE_CREATURES_UP_Z = 0;
 
-        public static int MAX_LIGHT_LEVEL = 25;
+        public static int MAX_LIGHT_LEVEL = 50;
         public static int MIN_LIGHT_LEVEL = 1;
         public static float LIGHT_LEVEL_VARIANCE_UPPER = 0.15f;
         public static float LIGHT_LEVEL_VARIANCE_LOWER = 0.15f;
@@ -72,8 +72,8 @@ namespace ShootyShootyRL.Mapping
         private int[,] light_tint;
 
         private bool[, ,] in_sunlight;
-        private byte sun_light = 25;
-        private byte prev_sun_light = 0;
+        private int sun_light = 1000;
+        private int prev_sun_light = 0;
         private bool sun_level_changed = false;
 
         private int vp_height;
@@ -1381,7 +1381,7 @@ namespace ShootyShootyRL.Mapping
                 }
 
                 //Actually recalculate the lightmap
-                temp = ls.RecalulateLightmap();
+                temp = ls.RecalulateLightmap(ref tcod_map, cells[0,0,0].X, cells[0,0,0].Y);
 
                 //Apply the current effects to the light_level arrays
                 for (int x = 0; x < ls.LightRadius * 2; x++)

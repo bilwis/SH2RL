@@ -92,7 +92,7 @@ namespace ShootyShootyRL
 
         public Game()
         {
-            //TCODConsole.setCustomFont("terminal12x12_gs_ro.png", (int)TCODFontFlags.LayoutAsciiInRow);
+            TCODConsole.setCustomFont("terminal12x12_gs_ro.png", (int)TCODFontFlags.LayoutAsciiInRow);
             TCODConsole.initRoot(WINDOW_WIDTH, WINDOW_HEIGHT, "ShootyShooty RL", false,TCODRendererType.SDL);
             TCODSystem.setFps(60);
 
@@ -568,7 +568,7 @@ namespace ShootyShootyRL
 
             player = new Player(1300, 1300, 35, "Player", "A ragged and scruffy-looking individual.", '@', new Body(BODY_DEF_HUMAN));
 
-            player.RegisterLightSource(new LightSource(1300, 1300, 35, 20, "Torch", "A torch.", '!'));
+            player.RegisterLightSource(new LightSource(1300, 1300, 35, 30, "Torch", "A torch.", '!'));
             player.Init(TCODColor.yellow, Out, player_faction, new Objects.Action(ActionType.Idle, null, player, 0.0d));
 
             Out.SendMessage("Welcome to [insert game name here]!", Message.MESSAGE_WELCOME);
@@ -610,25 +610,35 @@ namespace ShootyShootyRL
             //test_item.Activate();
             //map.AddItem(test_item);
 
-            LightSource test_item2 = new LightSource(1295, 1310, map.DropObject(1299, 1299, 35), 10, "Shimmering Rock", "A shining polished rock which seems to change color when you look at it.", (char)'*');
+            LightSource test_item2 = new LightSource(1295, 1310, map.DropObject(1299, 1299, 35), 30, "Shimmering Rock", "A shining polished rock which seems to change color when you look at it.", (char)'*');
             test_item2.Init(TCODColor.blue, Out);
             test_item2.Activate();
             map.AddItem(test_item2);
 
-            LightSource test_item3 = new LightSource(1315, 1283, map.DropObject(1299, 1299, 35), 10, "Shimmering Rock", "A shining polished rock which seems to change color when you look at it.", (char)'*');
+            LightSource test_item3 = new LightSource(1315, 1283, map.DropObject(1299, 1299, 35), 35, "Shimmering Rock", "A shining polished rock which seems to change color when you look at it.", (char)'*');
             test_item3.Init(TCODColor.green, Out);
             test_item3.Activate();
             map.AddItem(test_item3);
 
-            LightSource test_item4 = new LightSource(1315, 1319, map.DropObject(1299, 1299, 35), 10, "Shimmering Rock", "A shining polished rock which seems to change color when you look at it.", (char)'*');
+            LightSource test_item4 = new LightSource(1315, 1319, map.DropObject(1299, 1299, 35), 35, "Shimmering Rock", "A shining polished rock which seems to change color when you look at it.", (char)'*');
             test_item4.Init(TCODColor.orange, Out);
             test_item4.Activate();
             map.AddItem(test_item4);
 
-            LightSource test_item5 = new LightSource(1291, 1283, map.DropObject(1299, 1299, 35), 10, "Shimmering Rock", "A shining polished rock which seems to change color when you look at it.", (char)'*');
+            LightSource test_item5 = new LightSource(1291, 1283, map.DropObject(1299, 1299, 35), 30, "Shimmering Rock", "A shining polished rock which seems to change color when you look at it.", (char)'*');
             test_item5.Init(TCODColor.red, Out);
             test_item5.Activate();
             map.AddItem(test_item5);
+
+            LightSource test_item6 = new LightSource(1305, 1300, map.DropObject(1299, 1299, 35), 35, "Shimmering Rock", "A shining polished rock which seems to change color when you look at it.", (char)'*');
+            test_item6.Init(TCODColor.pink, Out);
+            test_item6.Activate();
+            map.AddItem(test_item6);
+
+            LightSource test_item7 = new LightSource(1291, 1293, map.DropObject(1299, 1299, 35), 30, "Shimmering Rock", "A shining polished rock which seems to change color when you look at it.", (char)'*');
+            test_item7.Init(TCODColor.violet, Out);
+            test_item7.Activate();
+            map.AddItem(test_item7);
         }
 
         public void Save()
