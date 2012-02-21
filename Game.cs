@@ -168,6 +168,13 @@ namespace ShootyShootyRL
 
                 key = TCODConsole.waitForKeypress(true);
 
+                if (key.Character == 'r')
+                {
+                    Random rand = new Random();
+                    ProfileName = rand.Next(0, 1000000).ToString();
+                    seed = (uint)rand.Next(0, 1000000).ToString().GetHashCode();
+                    return 0;
+                }
                 if (key.KeyCode == TCODKeyCode.KeypadSubtract)
                 {
                     if (selected > 0)
@@ -561,7 +568,7 @@ namespace ShootyShootyRL
 
             player = new Player(1300, 1300, 35, "Player", "A ragged and scruffy-looking individual.", '@', new Body(BODY_DEF_HUMAN));
 
-            player.RegisterLightSource(new LightSource(1300, 1300, 35, 10, "Torch", "A torch.", '!'));
+            player.RegisterLightSource(new LightSource(1300, 1300, 35, 20, "Torch", "A torch.", '!'));
             player.Init(TCODColor.yellow, Out, player_faction, new Objects.Action(ActionType.Idle, null, player, 0.0d));
 
             Out.SendMessage("Welcome to [insert game name here]!", Message.MESSAGE_WELCOME);
@@ -619,7 +626,7 @@ namespace ShootyShootyRL
             map.AddItem(test_item4);
 
             LightSource test_item5 = new LightSource(1291, 1283, map.DropObject(1299, 1299, 35), 10, "Shimmering Rock", "A shining polished rock which seems to change color when you look at it.", (char)'*');
-            test_item5.Init(TCODColor.yellow, Out);
+            test_item5.Init(TCODColor.red, Out);
             test_item5.Activate();
             map.AddItem(test_item5);
         }
@@ -910,8 +917,8 @@ namespace ShootyShootyRL
                     {
                         LightSource l = (LightSource)i;
                         //l.SetPosition(l.X, l.Y, l.Z);
-                        //l.SetLevel((byte)(l.LightLevel - 1));
-                        l.SetRecalculated(true);
+                        //l.SetLevel((byte)(l.LightRadius - 1));
+                        l.SetRecalculate(true);
                         templ.Add(l);
                     }
 

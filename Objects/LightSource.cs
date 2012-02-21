@@ -10,12 +10,15 @@ namespace ShootyShootyRL.Objects
     [Serializable()]
     public class LightSource:Item
     {
-        private byte level;
+        private int level;
         private bool recalc;
         private bool active;
 
         private int prev_x, prev_y, prev_z;
-        private byte prev_level;
+        private int prev_level;
+
+        public int[,] Lightmap;
+
 
         public int PrevX
         {
@@ -39,7 +42,18 @@ namespace ShootyShootyRL.Objects
             }
         }
 
-        public byte LightLevel
+        public int LightRadius
+        {
+            get
+            {
+                if (active)
+                    return (int)Util.CalculateDistance(0,0,level, 0);
+                else
+                    return 0;
+            }
+        }
+
+        public int LightLevel
         {
             get
             {
@@ -50,11 +64,11 @@ namespace ShootyShootyRL.Objects
             }
         }
 
-        public byte PreviousLightLevel
+        public int PreviousLightRadius
         {
             get
             {
-                return prev_level;
+                return (int)Util.CalculateDistance(0,0,prev_level, 0);
             }
         }
 
@@ -79,6 +93,8 @@ namespace ShootyShootyRL.Objects
 
             this.level = level;
             prev_level = level;
+
+            Lightmap = new int[level * 2, level * 2];
 
             active = false;
             recalc = false;
@@ -131,7 +147,7 @@ namespace ShootyShootyRL.Objects
             return true;
         }
 
-        public void SetRecalculated(bool value)
+        public void SetRecalculate(bool value)
         {
             prev_level = level;
             prev_x = x;
@@ -147,6 +163,28 @@ namespace ShootyShootyRL.Objects
             prev_y = y;
             prev_z = z;
             recalc = false;
+        }
+
+        public int[,] RecalulateLightmap()
+        {
+            if (!recalc)
+                return Lightmap;
+
+            Lightmap = new int[LightRadius * 2, LightRadius * 2];
+            int l;
+
+            for (int x = -LightRadius; x < LightRadius; x++)
+            {
+                for (int y = -LightRadius; y < LightRadius; y++)
+                {
+                    l = (int)Math.Round((float)level - Math.Pow(Util.CalculateDistance(x, y, 0, 0),1.5f));
+                    Lightmap[x + LightRadius, y + LightRadius] = l >= 0 ? l : 0;
+                }
+            }
+
+            SetRecalculated();
+
+            return Lightmap;
         }
 
         public void SetLevel(byte level)
