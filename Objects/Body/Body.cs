@@ -6,6 +6,10 @@ using System.Xml;
 
 namespace ShootyShootyRL.Objects.Bodies
 {
+    /// <summary>
+    /// This class represents a body for a creature consisting of various parts, which are in turn comprised of organs,
+    /// which contain multiple organ parts. The body class handles all interfacing with those parts and subparts.
+    /// </summary>
     [Serializable()]
     public class Body
     {
@@ -13,25 +17,19 @@ namespace ShootyShootyRL.Objects.Bodies
         [field:NonSerialized()]
         public Creature parent;
 
-        List<BodyPart> parts;
+        Dictionary<string, BodyPart> parts;
+        Dictionary<float, string> hitmap;
 
         public float height, width, depth;
 
         bool initialized = false;
         bool loaded = false;
 
-        public Body()
-        {
-            this.GUID = System.Guid.NewGuid().ToString();
-
-            parts = new List<BodyPart>();
-        }
-
         public Body(string filename)
         {
             this.GUID = System.Guid.NewGuid().ToString();
 
-            parts = new List<BodyPart>();
+            parts = new Dictionary<string, BodyPart>();
             ParseBodyDefinition(filename);
         }
 
@@ -46,9 +44,21 @@ namespace ShootyShootyRL.Objects.Bodies
             initialized = false;
         }
 
+        private void makeHitMap()
+        {
+            float total_surface = 0.0f;
+
+            foreach (BodyPart bp in parts.Values)
+            {
+                total_surface += bp.Surface;
+            }
+
+
+        }
+
         public void AddBodyPart(BodyPart bp, BodyPart parent=null)
         {
-            parts.Add(bp);
+            parts.Add(bp.GUID, bp);
             bp.ConnectToBody(this, parent);
         }
 
@@ -56,9 +66,9 @@ namespace ShootyShootyRL.Objects.Bodies
         {
             Random rand = new Random();
             int i = rand.Next(0, parts.Count);
-            BodyPart temp_part =  parts[i].Sever(parent.X, parent.Y, parent.Z, parent.MessageHandler);
+            BodyPart temp_part =  parts.ElementAt(i).Value.Sever(parent.X, parent.Y, parent.Z, parent.MessageHandler);
 
-            parts.RemoveAt(i);
+            parts.Remove(temp_part.GUID);
             return temp_part;
         }
 
@@ -66,10 +76,12 @@ namespace ShootyShootyRL.Objects.Bodies
         {
             String temp = "";
 
-            foreach (BodyPart bp in parts)
+            foreach (BodyPart bp in parts.Values)
             {
-                temp += bp.name + ", ";
+                temp += bp.Name + ", ";
             }
+
+            temp += ".";
 
             return temp;
         }
@@ -200,7 +212,7 @@ namespace ShootyShootyRL.Objects.Bodies
                                                 case "body_part":
                                                     BodyPart new_bp = new BodyPart(guid, bp_name, surface, weight, essential, symetrical, display_char[0], rgb);
                                                     bp_parents.Add(new_bp.GUID, parent_name);
-                                                    parts.Add(new_bp);
+                                                    parts.Add(new_bp.GUID, new_bp);
                                                     bp_done = true;
                                                     break;
                                             }
@@ -222,7 +234,7 @@ namespace ShootyShootyRL.Objects.Bodies
             }
 
             //load bp_organs into bodyparts, attach bodyparts to Body
-            foreach (BodyPart p in parts)
+            foreach (BodyPart p in parts.Values)
             {
                 foreach (OrganConstructor oc in bp_organs)
                 {
@@ -239,9 +251,9 @@ namespace ShootyShootyRL.Objects.Bodies
                 }
                 if (bp_parents[p.GUID] != null)
                 {
-                    foreach (BodyPart par in parts)
+                    foreach (BodyPart par in parts.Values)
                     {
-                        if (par.name == bp_parents[p.GUID])
+                        if (par.Name == bp_parents[p.GUID])
                             p.ConnectToBody(this, par);
                     }
                 }
@@ -333,8 +345,8 @@ namespace ShootyShootyRL.Objects.Bodies
         private BodyPart parseBodyPartDefinition(XmlTextReader reader)
         {
             string name = "ERROR";
-            float surface = 0.0f;
-            float weight = 0.0f;
+            float Surface = 0.0f;
+            float Weight = 0.0f;
             bool IsEssential = false;
 
             string parent_name = null;
@@ -352,11 +364,11 @@ namespace ShootyShootyRL.Objects.Bodies
                             case "name":
                                 name = reader.ReadElementContentAsString();
                                 break;
-                            case "surface":
-                                surface = reader.ReadElementContentAsFloat();
+                            case "Surface":
+                                Surface = reader.ReadElementContentAsFloat();
                                 break;
-                            case "weight":
-                                weight = reader.ReadElementContentAsFloat();
+                            case "Weight":
+                                Weight = reader.ReadElementContentAsFloat();
                                 break;
                             case "IsEssential":
                                 IsEssential = reader.ReadElementContentAsBoolean();

@@ -9,9 +9,8 @@ namespace ShootyShootyRL.Objects.Bodies
     public class BodyPart:Item
     {
         public String GUID;
-        public String name;
-        public float surface;
-        public float weight;
+        public float Surface;
+        public float Weight;
         public bool IsEssential;
 
         public int rgb;
@@ -24,13 +23,13 @@ namespace ShootyShootyRL.Objects.Bodies
         public bool IsSevered;
         public bool IsSymetrical; //only for construction/information, organs are already inserted twice!
 
-        /*public BodyPart(String name, float surface, float weight, bool essential)
+        /*public BodyPart(String name, float Surface, float Weight, bool essential)
         {
             GUID = System.Guid.NewGuid().ToString();
             IsSevered = true;
             this.name = name;
-            this.surface = surface;
-            this.weight = weight;
+            this.Surface = Surface;
+            this.Weight = Weight;
             this.IsEssential = essential;
             this.organs = new List<Organ>();
         }*/
@@ -40,9 +39,9 @@ namespace ShootyShootyRL.Objects.Bodies
         {
             this.GUID = GUID;
             IsSevered = true;
-            this.name = name;
-            this.surface = surface;
-            this.weight = weight;
+            this.Name = name;
+            this.Surface = surface;
+            this.Weight = weight;
             this.IsEssential = essential;
             this.IsSymetrical = symetrical;
             this.organs = new List<Organ>();
@@ -57,7 +56,7 @@ namespace ShootyShootyRL.Objects.Bodies
             this.y = y;
             this.z = z;
             Init(Util.DecodeRGB(rgb), msg);
-            this._desc = "A severed " + name.ToLower() + " lies here.";
+            this._desc = "A severed " + Name.ToLower() + " lies here.";
             IsSevered = true;
             parent = null;
 

@@ -56,10 +56,12 @@ namespace ShootyShootyRL.Mapping
         public static int VIEW_DISTANCE_CREATURES_DOWN_Z = 0;
         public static int VIEW_DISTANCE_CREATURES_UP_Z = 0;
 
-        public static int MAX_LIGHT_LEVEL = 50;
-        public static int MIN_LIGHT_LEVEL = 1;
+        public static int MAX_LIGHT_LEVEL = 40;
+        public static int MIN_LIGHT_LEVEL = 5;
         public static float LIGHT_LEVEL_VARIANCE_UPPER = 0.15f;
         public static float LIGHT_LEVEL_VARIANCE_LOWER = 0.15f;
+
+        public bool TEST_CIE = false;
 
         private int currentCellId;
 
@@ -1381,7 +1383,7 @@ namespace ShootyShootyRL.Mapping
                 }
 
                 //Actually recalculate the lightmap
-                temp = ls.RecalulateLightmap(ref tcod_map, cells[0,0,0].X, cells[0,0,0].Y);
+                temp = ls.RecalulateLightmap(ref tcod_map, cells[0, 0, 0].X, cells[0, 0, 0].Y);
 
                 //Apply the current effects to the light_level arrays
                 for (int x = 0; x < ls.LightRadius * 2; x++)
@@ -1406,7 +1408,7 @@ namespace ShootyShootyRL.Mapping
             sun_level_changed = false;
         }
 
-        public void UpdateTintMap()
+        public void UpdateTintMap(int width, int height)
         {
             List<LightSource> sources = new List<LightSource>();    //The sources list
 
@@ -1419,11 +1421,11 @@ namespace ShootyShootyRL.Mapping
             int right;
             int bottom;
 
-            top = Player.Y - (vp_height / 2);
-            bottom = top + vp_height;
+            top = Player.Y - (height / 2);
+            bottom = top + height;
 
-            left = Player.X - (vp_width / 2);
-            right = left + vp_width;
+            left = Player.X - (width / 2);
+            right = left + width;
 
             if (top >= bottom || left >= right)
                 return;
@@ -1462,6 +1464,7 @@ namespace ShootyShootyRL.Mapping
             byte[,] blue = new byte[vp_width, vp_height];
 
             TCODColor faded_col;
+            TCODColor inter_col;
 
             //Fetch them viable lightsources!
             foreach (Item i in ItemList.Values)
@@ -1480,26 +1483,54 @@ namespace ShootyShootyRL.Mapping
                 rel_x = ls.X - left;
                 rel_y = ls.Y - top;
 
-                tcod_map.computeFov(ls.X - cells[0,0,0].X, ls.Y - cells[0,0,0].Y, ls.LightRadius, true, TCODFOVTypes.RestrictiveFov);
+                tcod_map.computeFov(ls.X - cells[0, 0, 0].X, ls.Y - cells[0, 0, 0].Y, ls.LightRadius, true, TCODFOVTypes.RestrictiveFov);
 
                 for (int x = -ls.LightRadius; x < ls.LightRadius; x++)
                 {
                     for (int y = -ls.LightRadius; y < ls.LightRadius; y++)
                     {
-                        curr_rel_x = rel_x +x;
-                        curr_rel_y = rel_y +y;
-                            if (curr_rel_x > 0 && curr_rel_x < vp_width 
-                                && curr_rel_y > 0 && curr_rel_y < vp_height
-                                && tcod_map.isInFov(ls.X + x - cells[0, 0, 0].X, ls.Y + y - cells[0, 0, 0].Y) &&
-                                ls.Lightmap[x+ls.LightRadius, y+ ls.LightRadius] > 0)
-                            {
-                                faded_col = TCODColor.Interpolate(TCODColor.black, ls.ForeColor,
-                                    (float)ls.Lightmap[x + ls.LightRadius, y + ls.LightRadius] / (float)ls.LightLevel);
-                                red[curr_rel_x, curr_rel_y] = (byte)((red[curr_rel_x, curr_rel_y] + faded_col.Red) / 2);
-                                green[curr_rel_x, curr_rel_y] = (byte)((green[curr_rel_x, curr_rel_y] + faded_col.Green) / 2);
-                                blue[curr_rel_x, curr_rel_y] = (byte)((blue[curr_rel_x, curr_rel_y] + faded_col.Blue) / 2);
-                            }
-                        
+                        curr_rel_x = rel_x + x;
+                        curr_rel_y = rel_y + y;
+                        if (curr_rel_x > 0 && curr_rel_x < vp_width
+                            && curr_rel_y > 0 && curr_rel_y < vp_height
+                            && tcod_map.isInFov(ls.X + x - cells[0, 0, 0].X, ls.Y + y - cells[0, 0, 0].Y) &&
+                            ls.Lightmap[x + ls.LightRadius, y + ls.LightRadius] > 0)
+                        {
+
+
+                            //inter_col = new TCODColor(red[curr_rel_x, curr_rel_y], green[curr_rel_x, curr_rel_y], blue[curr_rel_x, curr_rel_y]);
+                            //inter_col = TCODColor.Interpolate(inter_col, faded_col, (float)ls.Lightmap[x + ls.LightRadius, y + ls.LightRadius] / (float)ls.LightLevel);
+
+                            faded_col = TCODColor.Interpolate(TCODColor.black, ls.ForeColor,
+                                1.0f);
+                                //Math.Max(((float)ls.Lightmap[x + ls.LightRadius, y + ls.LightRadius] / (float)ls.LightLevel),0.5f));
+
+                            inter_col = new TCODColor(red[curr_rel_x, curr_rel_y], green[curr_rel_x, curr_rel_y], blue[curr_rel_x, curr_rel_y]);
+                            inter_col = TCODColor.Interpolate(inter_col, faded_col, (float)ls.Lightmap[x + ls.LightRadius, y + ls.LightRadius] / (float)ls.LightLevel);
+
+                            red[curr_rel_x, curr_rel_y] = red[curr_rel_x, curr_rel_y] > inter_col.Red ? red[curr_rel_x, curr_rel_y] : inter_col.Red;
+                            green[curr_rel_x, curr_rel_y] = green[curr_rel_x, curr_rel_y] > inter_col.Green ? green[curr_rel_x, curr_rel_y] : inter_col.Green;
+                            blue[curr_rel_x, curr_rel_y] = blue[curr_rel_x, curr_rel_y] > inter_col.Blue ? blue[curr_rel_x, curr_rel_y] : inter_col.Blue;
+
+                            /*
+                            red[curr_rel_x, curr_rel_y] = inter_col.Red;
+                            green[curr_rel_x, curr_rel_y] = inter_col.Green;
+                            blue[curr_rel_x, curr_rel_y] = inter_col.Blue;
+                            */
+
+                            /*
+                            red[curr_rel_x, curr_rel_y] = red[curr_rel_x, curr_rel_y] > faded_col.Red ? red[curr_rel_x, curr_rel_y] : faded_col.Red;
+                            green[curr_rel_x, curr_rel_y] = green[curr_rel_x, curr_rel_y] > faded_col.Green ? green[curr_rel_x, curr_rel_y] : faded_col.Green;
+                            blue[curr_rel_x, curr_rel_y] = blue[curr_rel_x, curr_rel_y] > faded_col.Blue ? blue[curr_rel_x, curr_rel_y] : faded_col.Blue;
+                            */
+
+                            /*
+                            red[curr_rel_x, curr_rel_y] = (byte)((float)(red[curr_rel_x, curr_rel_y] + faded_col.Red) / 2.0f);
+                            green[curr_rel_x, curr_rel_y] = (byte)((float)(green[curr_rel_x, curr_rel_y] + faded_col.Green) / 2.0f);
+                            blue[curr_rel_x, curr_rel_y] = (byte)((float)(blue[curr_rel_x, curr_rel_y] + faded_col.Blue) / 2.0f);
+                            */
+                        }
+
                     }
                 }
             }
@@ -1762,7 +1793,7 @@ namespace ShootyShootyRL.Mapping
         /// <summary>
         /// This function renders the particles of the given particle emitter onto the given console object.
         /// </summary>
-        public void RenderParticles(ParticleEmitter emitter, TCODConsole con)
+        public void RenderParticles(ParticleEmitter emitter, TCODConsole con, int width, int height)
         {
             //Check if emitter is on player level
             if (emitter.abs_z != Player.Z)
@@ -1775,11 +1806,11 @@ namespace ShootyShootyRL.Mapping
             int right;
             int bottom;
 
-            top = Player.Y - (vp_height / 2);
-            bottom = top + vp_height;
+            top = Player.Y - (height / 2);
+            bottom = top + height;
 
-            left = Player.X - (vp_width / 2);
-            right = left + vp_width;
+            left = Player.X - (width / 2);
+            right = left + width;
 
             if (top >= bottom || left >= right)
                 return;
@@ -1818,7 +1849,7 @@ namespace ShootyShootyRL.Mapping
                     con.setBackgroundFlag(TCODBackgroundFlag.Screen);
                     con.setBackgroundColor(TCODColor.Interpolate(TCODColor.black, p.color, p.intensity));
 
-                    con.print(1 + ((int)p.abs_x - left), 1 + ((int)p.abs_y - top), " "); 
+                    con.print(1 + ((int)p.abs_x - left), 1 + ((int)p.abs_y - top), " ");
                 }
 
             }
@@ -1883,6 +1914,7 @@ namespace ShootyShootyRL.Mapping
             int cell_rel_x, cell_rel_y;
             Tile t;
             TCODColor tinted_fore, tinted_back;
+            bool floor = false;
 
             Random rand = new Random();
 
@@ -1908,7 +1940,7 @@ namespace ShootyShootyRL.Mapping
                 }
             }
             //Update tint
-            UpdateTintMap();
+            UpdateTintMap(width, height);
 
             //Calculate the player's FOV
             tcod_map.computeFov(Player.X - cells[0, 0, 0].X, Player.Y - cells[0, 0, 0].Y, right - left, true, TCODFOVTypes.RestrictiveFov);
@@ -1935,7 +1967,7 @@ namespace ShootyShootyRL.Mapping
                     light_level = wm.GetCellFromCoordinates(abs_x, abs_y, Player.Z).GetLightLevel(abs_x, abs_y, Player.Z);
                     //light_level = rand.Next((int)(light_level - (LIGHT_LEVEL_VARIANCE_LOWER * light_level)),
                     //    (int)(light_level + (LIGHT_LEVEL_VARIANCE_UPPER * light_level)));
-                    
+
                     light_level = light_level > MAX_LIGHT_LEVEL ? MAX_LIGHT_LEVEL : light_level;
                     light_level = light_level < MIN_LIGHT_LEVEL ? MIN_LIGHT_LEVEL : light_level;
 
@@ -1960,9 +1992,15 @@ namespace ShootyShootyRL.Mapping
                     //Retrieve the actual tile data
                     //If tile is transparent, display the tile BELOW (floor)
                     if (tcod_map.isTransparent(cell_rel_x, cell_rel_y))
+                    {
                         t = wm.GetTileFromID(tilearr[rel_x, rel_y]);
+                        floor = true;
+                    }
                     else //the wall!
+                    {
                         t = getTileFromCells(abs_x, abs_y, Player.Z);
+                        floor = false;
+                    }
 
                     //Safeguard
                     if (t.ForeColor == null)
@@ -1977,7 +2015,8 @@ namespace ShootyShootyRL.Mapping
 
                     if (t.BackColor != null)
                     {
-                        tinted_back = TCODColor.Interpolate(Util.DecodeRGB(light_tint[rel_x, rel_y]), t.BackColor, 0.5f);
+                        //
+                        tinted_back = floor ? TCODColor.Interpolate(Util.DecodeRGB(light_tint[rel_x, rel_y]), t.BackColor, 0.5f) : t.BackColor;
 
                         con.setBackgroundColor(TCODColor.Interpolate(TCODColor.black, tinted_back, color_intensity));
                         con.setBackgroundFlag(TCODBackgroundFlag.Set);
@@ -1994,6 +2033,8 @@ namespace ShootyShootyRL.Mapping
             //Report the time it took to render one frame! (but only if in Debug mode!)
             if (DEBUG_OUTPUT)
                 _out.SendMessage("Drew frame, printed " + debug_prints + " tiles, took " + sw.ElapsedMilliseconds + "ms.");
+
+            _out.SendMessage("Light Level at Player Pos:  " + cells[1, 1, 1].GetLightLevel(Player.X, Player.Y, Player.Z));
 
             #region "Object rendering"
             //RenderAll the player

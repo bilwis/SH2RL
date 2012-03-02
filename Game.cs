@@ -412,10 +412,10 @@ namespace ShootyShootyRL
 
                 if (effects_timer.ElapsedMilliseconds >= EFFECT_RATE_MS)
                 {
-                    if (emit.abs_z == player.Z)
-                        emit.Tick((int)effects_timer.ElapsedMilliseconds);
+                    //if (emit.abs_z == player.Z)
+                    //    emit.Tick((int)effects_timer.ElapsedMilliseconds);
 
-                    RenderEffects();
+                    //RenderEffects();
                     effects_timer.Restart();
                 }
             }
@@ -568,7 +568,7 @@ namespace ShootyShootyRL
 
             player = new Player(1300, 1300, 35, "Player", "A ragged and scruffy-looking individual.", '@', new Body(BODY_DEF_HUMAN));
 
-            player.RegisterLightSource(new LightSource(1300, 1300, 35, 30, "Torch", "A torch.", '!'));
+            player.RegisterLightSource(new LightSource(1300, 1300, 35, 0, "Torch", "A torch.", '!'));
             player.Init(TCODColor.yellow, Out, player_faction, new Objects.Action(ActionType.Idle, null, player, 0.0d));
 
             Out.SendMessage("Welcome to [insert game name here]!", Message.MESSAGE_WELCOME);
@@ -917,6 +917,11 @@ namespace ShootyShootyRL
             if (key.Character == 'q')
                 CancelDialog();
 
+            if (key.Character == 'l')
+            {
+                map.TEST_CIE = map.TEST_CIE ? false : true;
+            }
+
             if (key.KeyCode == TCODKeyCode.F11)
             {
                 List<LightSource> templ = new List<LightSource>();
@@ -981,16 +986,38 @@ namespace ShootyShootyRL
             //    effects.print(rand.Next(1, WINDOW_WIDTH-1), rand.Next(!render_dialog ? 1 : DIALOG_HEIGHT, !render_dialog ? MAIN_HEIGHT : MAIN_HEIGHT - DIALOG_HEIGHT-1), "*");
             //}
 
-            map.RenderParticles(emit, effects);
+            if (render_dialog)
+                map.RenderParticles(emit, effects, WINDOW_WIDTH, MAIN_HEIGHT - DIALOG_HEIGHT);
+            else
+                map.RenderParticles(emit, effects, WINDOW_WIDTH, MAIN_HEIGHT);
 
             particle_count = emit.particles.Count;
-            main.setForegroundColor(TCODColor.white);
-            main.print(WINDOW_WIDTH - 21, 0, "Particle Count: " + particle_count);
+            //main.setForegroundColor(TCODColor.white);
+            //main.print(WINDOW_WIDTH - 21, 0, "Particle Count: " + particle_count);
 
             if (render)
             {
+                int offset = render_dialog ? DIALOG_HEIGHT : 0;
+
                 TCODConsole.blit(main, 0, 0, WINDOW_WIDTH, MAIN_HEIGHT, root, 0, 0);
                 TCODConsole.blit(effects, 0, 0, WINDOW_WIDTH, MAIN_HEIGHT, root, 0, 0, EFFECTS_ALPHA, EFFECTS_ALPHA);
+
+                if (render_dialog)
+                {
+                    if (current_dialog.GetType() == typeof(Dialog))
+                    {
+                        Dialog d = (Dialog)current_dialog;
+                        d.Render(dialog);
+                    }
+                    if (current_dialog.GetType() == typeof(InputDialog))
+                    {
+                        InputDialog d = (InputDialog)current_dialog;
+                        d.Render(dialog);
+                    }
+
+                    TCODConsole.blit(dialog, 0, 0, WINDOW_WIDTH, DIALOG_HEIGHT, root, 0, 0);
+                }
+
                 TCODConsole.flush();
             }
         }
