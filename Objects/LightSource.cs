@@ -12,11 +12,13 @@ namespace ShootyShootyRL.Objects
     public class LightSource:Item
     {
         private int level;
+        private int radius;
         private bool recalc;
         private bool active;
 
         private int prev_x, prev_y, prev_z;
         private int prev_level;
+        private int prev_radius;
 
         public int[,] Lightmap;
 
@@ -48,7 +50,7 @@ namespace ShootyShootyRL.Objects
             get
             {
                 if (active)
-                    return (int)Util.CalculateDistance(0,0,level, 0);
+                    return radius;
                 else
                     return 0;
             }
@@ -69,7 +71,7 @@ namespace ShootyShootyRL.Objects
         {
             get
             {
-                return (int)Util.CalculateDistance(0,0,prev_level, 0);
+                return prev_radius;
             }
         }
 
@@ -81,7 +83,7 @@ namespace ShootyShootyRL.Objects
             }
         }
 
-        public LightSource(int x, int y, int z, byte level, string name, string desc, char displ_char):
+        public LightSource(int x, int y, int z, int level, int radius, string name, string desc, char displ_char):
             base(x,y,z,name, desc, displ_char)
         {
             this.x = x;
@@ -94,6 +96,9 @@ namespace ShootyShootyRL.Objects
 
             this.level = level;
             prev_level = level;
+
+            this.radius = radius;
+            prev_radius = radius;
 
             Lightmap = new int[level * 2, level * 2];
 
@@ -151,6 +156,7 @@ namespace ShootyShootyRL.Objects
         public void SetRecalculate(bool value)
         {
             prev_level = level;
+            prev_radius = radius;
             prev_x = x;
             prev_y = y;
             prev_z = z;
@@ -160,6 +166,7 @@ namespace ShootyShootyRL.Objects
         public void SetRecalculated()
         {
             prev_level = level;
+            prev_radius = radius;
             prev_x = x;
             prev_y = y;
             prev_z = z;
@@ -171,18 +178,26 @@ namespace ShootyShootyRL.Objects
             if (!recalc)
                 return Lightmap;
 
-            Lightmap = new int[LightRadius * 2, LightRadius * 2];
+            Lightmap = new int[radius * 2, radius * 2];
             int l;
+            double coef, sqdist;
 
-            los_map.computeFov(X-map_x, Y-map_y, LightRadius, true, TCODFOVTypes.RestrictiveFov);
+            los_map.computeFov(X - map_x, Y - map_y, radius, true, TCODFOVTypes.RestrictiveFov);
 
-            for (int x = -LightRadius; x < LightRadius; x++)
+            for (int x = -radius; x < radius; x++)
             {
-                for (int y = -LightRadius; y < LightRadius; y++)
+                for (int y = -radius; y < radius; y++)
                 {
                     if (los_map.isInFov(X-map_x+x, Y-map_y+y))
                     {
-                        l = (int)Math.Round((float)level - Math.Pow(Util.CalculateDistance(x, y, 0, 0),1.5f));
+                        //l = (int)Math.Round((float)level - Math.Pow(Util.CalculateDistance(x, y, 0, 0),1.5f));
+                        sqdist = x * x + y * y;
+                        //coef = ((1.0 / (1.0 + Math.Pow(Util.CalculateDistance(x, y, 0, 0), 2.0f) / 20)) - 1.0 / (1.0 + radius * radius)) / (1.0 - 1.0 / (1.0 + radius * radius));
+                        coef = 1.0f / (1.0f + sqdist/20);
+                        coef -= 1.0f / (1.0f + (radius * radius)/20);
+                        coef /= 1.0f - 1.0f / (1.0f + (radius * radius));
+
+                        l = (int)Math.Floor(level * coef);
                         Lightmap[x + LightRadius, y + LightRadius] = l >= 0 ? l : 0;
                     }
                 }
@@ -193,12 +208,22 @@ namespace ShootyShootyRL.Objects
             return Lightmap;
         }
 
-        public void SetLevel(byte level)
+        public void SetLevel(int level)
         {
             //TODO: Handle properly in map
 
             prev_level = this.level;
             this.level = level;
+            if (active)
+                recalc = true;
+        }
+
+        public void SetRadius(int radius)
+        {
+            //TODO: Handle properly in map
+
+            prev_radius = this.radius;
+            this.radius = radius;
             if (active)
                 recalc = true;
         }
