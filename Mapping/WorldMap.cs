@@ -535,8 +535,8 @@ namespace ShootyShootyRL.Mapping
                     if (z == 30 || z == 40)
                         return TILE_STONE_FLOOR;
 
-                    //if (z == 31 & (x % 2) == 0 && (y % 2) == 0 && (rand < 0.1))
-                    //    return TILE_STONE_WALL;
+                    if (z == 31 && (rand < 0.05))
+                        return TILE_STONE_WALL;
                     return TILE_AIR;
                 }
             }

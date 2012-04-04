@@ -86,12 +86,16 @@ namespace ShootyShootyRL.Objects
 
             if (!flying)
             {
-                if (m.IsMovementPossibleDrop(x, y, z))
+                if (checkMovement(x, y, z, m))
                 {
                     if (isDiag)
                         Actions.Enqueue(new Action(ActionType.Move, new MovementActionParameters(x, y, m.DropObject(x, y, z), m), this, EDiagMovementCost));
                     else
                         Actions.Enqueue(new Action(ActionType.Move, new MovementActionParameters(x, y, m.DropObject(x, y, z), m), this, EMovementCost));
+                }
+                else
+                {
+                    Debug.WriteLine("MOVEMENT IMPOSSIBLE");
                 }
             }
                 //SetPosition(x, y, z);
@@ -143,6 +147,13 @@ namespace ShootyShootyRL.Objects
             return param.map.IsMovementPossible(param.Target_X, param.Target_Y, param.Target_Z);
         }
 
+        protected virtual bool checkMovement(int x, int y, int z, Map m)
+        {
+            //_messageHandler.SendDebugMessage("CONSIDERING MOVEMENT FOR " + _name + " WITH CREATURE checkMovement()");
+            return m.IsMovementPossible(x,y,z);
+        }
+
+
         //TODO: Actions !
         public virtual void Init(TCODColor color, MessageHandler msg, Faction fac, Action firstAction)
         {
@@ -190,8 +201,14 @@ namespace ShootyShootyRL.Objects
 
         protected override bool checkMovement(MovementActionParameters param)
         {
-            //_messageHandler.SendDebugMessage("CONSIDERING MOVEMENT FOR " + _name + " WITH PLAYER checkMovement()");
+            //_messageHandler.SendDebugMessage("CONSIDERING MOVEMENT FOR " + _name + " WITH PLAYER checkMovement(param)");
             return param.map.CheckPlayerMovement(param.Target_X, param.Target_Y, param.Target_Z);
+        }
+
+        protected override bool checkMovement(int x, int y, int z, Map m)
+        {
+            //_messageHandler.SendDebugMessage("CONSIDERING MOVEMENT FOR " + _name + " WITH PLAYER checkMovement()");
+            return m.CheckPlayerMovement(x, y, z);
         }
 
         public override void SetPosition(int x, int y, int z)

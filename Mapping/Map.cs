@@ -60,6 +60,7 @@ namespace ShootyShootyRL.Mapping
         public static int MIN_LIGHT_LEVEL = 5;
         public static float LIGHT_LEVEL_VARIANCE_UPPER = 0.15f;
         public static float LIGHT_LEVEL_VARIANCE_LOWER = 0.15f;
+        public static int LIGHT_LEVEL_CUTOFF_LOWER = 4;
 
         public bool TEST_CIE = false;
 
@@ -1597,7 +1598,7 @@ namespace ShootyShootyRL.Mapping
             //but the z-level above (due to the way that object OCCUPY the tile they
             //are located in, they have to STAND ON TOP of the ground tile).
 
-            for (int i = curr_z; i > cells[1, 1, 0].Z; i--)
+            for (int i = curr_z+1; i > cells[1, 1, 0].Z; i--)
             {
                 t_above = t_cur;
                 t_cur = getTileFromCells(abs_x, abs_y, i).Name;
@@ -1686,7 +1687,7 @@ namespace ShootyShootyRL.Mapping
         public bool IsMovementPossibleDrop(int abs_x, int abs_y, int curr_z)
         {
             int z = DropObject(abs_x, abs_y, curr_z);
-            if (z == -1)
+            if (z == -1 || z > curr_z)
                 return false;
             return IsMovementPossible(abs_x, abs_y, z);
         }
@@ -1698,7 +1699,6 @@ namespace ShootyShootyRL.Mapping
         /// <returns>true if the movement is possible, false otherwise</returns>
         public bool CheckPlayerMovement(int abs_x, int abs_y, int abs_z)
         {
-
             int cell_x = -1;
             int cell_y = -1;
             int cell_z = -1;
@@ -1712,7 +1712,7 @@ namespace ShootyShootyRL.Mapping
             // also simulate the player dropping from the destination coordinates
             // to ensure the cell in which he would actually end up in (seeing as
             // he can't fly) is checked.
-            if (!IsMovementPossibleDrop(abs_x, abs_y, abs_z))
+            if (!IsMovementPossible(abs_x, abs_y, abs_z))
                 return false;
 
             //Not the same cell anymore? Better load the new ones!
@@ -1974,7 +1974,7 @@ namespace ShootyShootyRL.Mapping
                     color_intensity = (float)light_level / MAX_LIGHT_LEVEL;
 
                     //Check if the tile is in viewport and not in darkness
-                    if (!tcod_map.isInFov(cell_rel_x, cell_rel_y) || wm.GetCellFromCoordinates(abs_x, abs_y, Player.Z).GetLightLevel(abs_x, abs_y, Player.Z) == 0)
+                    if (!tcod_map.isInFov(cell_rel_x, cell_rel_y) || wm.GetCellFromCoordinates(abs_x, abs_y, Player.Z).GetLightLevel(abs_x, abs_y, Player.Z) < LIGHT_LEVEL_CUTOFF_LOWER)
                     {
                         //if it is: If the tile was seen (is discovered) before, have a little bit of it be rendered
                         if (wm.GetCellFromCoordinates(abs_x, abs_y, Player.Z).IsDiscovered(abs_x, abs_y, Player.Z))
