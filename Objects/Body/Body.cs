@@ -72,6 +72,14 @@ namespace ShootyShootyRL.Objects.Bodies
             return temp_part;
         }
 
+        public BodyPart GetRandomBodyPart()
+        {
+            Random rand = new Random();
+            int i = rand.Next(0, parts.Count);
+            BodyPart temp_part = parts.ElementAt(i).Value;
+            return temp_part;
+        }
+
         public String MakeDescription()
         {
             String temp = "";

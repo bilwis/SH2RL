@@ -44,9 +44,9 @@ namespace ShootyShootyRL.Mapping
 
         WorldMap wm;
         public Creature Player;
-        public Dictionary<String, Creature> CreatureList;
-        public Dictionary<String, double> CreaturesByDistance;
-        public Dictionary<String, Item> ItemList;
+
+        public Inventory<Creature> CreatureList;
+        public Inventory<Item> ItemList;
 
         //public Dictionary<String, LightSource> LightSources;
 
@@ -96,9 +96,8 @@ namespace ShootyShootyRL.Mapping
 
             sun_level_changed = true;
 
-            CreatureList = new Dictionary<string, Creature>();
-            CreaturesByDistance = new Dictionary<string, double>();
-            ItemList = new Dictionary<string, Item>();
+            CreatureList = new Inventory<Creature>();
+            ItemList = new Inventory<Item>();
             //LightSources = new Dictionary<string, LightSource>();
             this.facman = facman;
 
@@ -921,7 +920,6 @@ namespace ShootyShootyRL.Mapping
 
             //CLEANUP
             CreatureList.Remove(guid);
-            CreaturesByDistance.Remove(guid);
 
             //done!
             command.Dispose();
@@ -999,7 +997,7 @@ namespace ShootyShootyRL.Mapping
 
             //Save all items by retrieving all guids and iterating through
             //them. (Can't iterate through an IEnumerable and change it within the iteration!)
-            string[] keys = ItemList.Keys.ToArray<string>();
+            string[] keys = ItemList.GetKeys().ToArray<string>();
             for (int i = 0; i < keys.Length; i++)
             {
                 Item kv = ItemList[keys[i]];
@@ -1019,7 +1017,7 @@ namespace ShootyShootyRL.Mapping
 
             //Save all creatures (refer item saving above)
             keys = new string[CreatureList.Count];
-            keys = CreatureList.Keys.ToArray<string>();
+            keys = CreatureList.GetKeys().ToArray<string>();
 
             for (int i = 0; i < keys.Length; i++)
             {
@@ -1355,7 +1353,7 @@ namespace ShootyShootyRL.Mapping
             int[,] temp;
 
             //Fetch them viable lightsources!
-            foreach (Item i in ItemList.Values)
+            foreach (Item i in ItemList.GetValues())
             {
                 if (i.GetType() == typeof(LightSource))
                 {
@@ -1403,7 +1401,7 @@ namespace ShootyShootyRL.Mapping
             foreach (LightSource ls in sources)
             {
                 ItemList.Remove(ls.GUID);
-                ItemList.Add(ls.GUID, ls);
+                ItemList.Add(ls);
             }
 
             sun_level_changed = false;
@@ -1468,7 +1466,7 @@ namespace ShootyShootyRL.Mapping
             TCODColor inter_col;
 
             //Fetch them viable lightsources!
-            foreach (Item i in ItemList.Values)
+            foreach (Item i in ItemList.GetValues())
             {
                 if (i.GetType() == typeof(LightSource))
                 {
@@ -1556,7 +1554,7 @@ namespace ShootyShootyRL.Mapping
 
             String temp = "";
 
-            foreach (Creature c in CreatureList.Values)
+            foreach (Creature c in CreatureList.GetValues())
             {
                 if (c.X == abs_x && c.Y == abs_y && c.Z == abs_z)
                 {
@@ -1564,7 +1562,7 @@ namespace ShootyShootyRL.Mapping
                 }
             }
 
-            foreach (Item i in ItemList.Values)
+            foreach (Item i in ItemList.GetValues())
             {
                 if (i.X == abs_x && i.Y == abs_y && i.Z == abs_z)
                 {
@@ -1618,8 +1616,7 @@ namespace ShootyShootyRL.Mapping
                 return false;
 
             //Add to dictionaries
-            CreatureList.Add(c.GUID, c);
-            CreaturesByDistance.Add(c.GUID, Util.CalculateDistance(Player, c));
+            CreatureList.Add(c);
             return true;
         }
 
@@ -1632,7 +1629,7 @@ namespace ShootyShootyRL.Mapping
             if (isCoordinateLoaded(i.X, i.Y, i.Z) == false)
                 return false;
 
-            ItemList.Add(i.GUID, i);
+            ItemList.Add(i);
             return true;
         }
 
@@ -1666,9 +1663,9 @@ namespace ShootyShootyRL.Mapping
 
 
             //If target Tile is occupied by another creature, deny movement (TODO: Attacking)
-            foreach (KeyValuePair<string, Creature> kv in CreatureList)
+            foreach (Creature c in CreatureList)
             {
-                if (kv.Value.X == abs_x && kv.Value.Y == abs_y && kv.Value.Z == abs_z)
+                if (c.X == abs_x && c.Y == abs_y && c.Z == abs_z)
                 {
                     if (DEBUG_OUTPUT)
                         _out.SendDebugMessage("Movement denied: Tile occupied.");
@@ -1764,7 +1761,7 @@ namespace ShootyShootyRL.Mapping
         public void Tick()
         {
             //Tick all loaded creatures
-            foreach (Creature c in CreatureList.Values)
+            foreach (Creature c in CreatureList.GetValues())
             {
                 if (c.GetType() == typeof(AICreature))
                 {
@@ -1776,12 +1773,12 @@ namespace ShootyShootyRL.Mapping
                 {
                     Player p = (Player)c;
                     ItemList.Remove(p.Lightsource.GUID);
-                    ItemList.Add(p.Lightsource.GUID, p.Lightsource);
+                    ItemList.Add(p.Lightsource);
                 }
             }
 
             //Tick all loaded items
-            foreach (Item i in ItemList.Values)
+            foreach (Item i in ItemList.GetValues())
             {
                 i.Tick();
             }
@@ -2044,7 +2041,7 @@ namespace ShootyShootyRL.Mapping
             con.print(con_x + (Player.X - left), con_y + (Player.Y - top), Player.DisplayString);
 
             //RenderAll the creatures
-            foreach (Creature c in CreatureList.Values)
+            foreach (Creature c in CreatureList.GetValues())
             {
                 if (c.Z >= curr_z - Map.VIEW_DISTANCE_CREATURES_DOWN_Z && c.Z <= curr_z + Map.VIEW_DISTANCE_CREATURES_UP_Z)
                 {
@@ -2054,7 +2051,7 @@ namespace ShootyShootyRL.Mapping
             }
 
             //RenderAll the items
-            foreach (Item i in ItemList.Values)
+            foreach (Item i in ItemList.GetValues())
             {
                 if (!i.IsVisible)
                     continue;

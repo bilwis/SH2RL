@@ -48,8 +48,12 @@
     <Compile Include="Objects\Body\Body.cs" />
     <Compile Include="Objects\Body\BodyPart.cs" />
     <Compile Include="Objects\Body\Organ.cs" />
+    <Compile Include="Objects\CharStats.cs" />
     <Compile Include="Objects\Creature.cs" />
     <Compile Include="Objects\Faction.cs" />
+    <Compile Include="Objects\Inventory.cs" />
+    <Compile Include="Objects\Weapons\Ammo.cs" />
+    <Compile Include="Objects\Weapons\Firearm.cs" />
     <Compile Include="Objects\Item.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Systems\Dialog.cs" />

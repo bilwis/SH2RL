@@ -66,6 +66,11 @@ namespace ShootyShootyRL
 
         Player player;
         AICreature testai;
+        Creature dummy;
+
+        Firearm testgun;
+        Magazine testmag;
+
         WorldMap wm;
         uint seed;
         Map map;
@@ -557,18 +562,18 @@ namespace ShootyShootyRL
             player_faction.Init(facman);
 
             //Faction human_faction = new Faction("Humans", "The surviors of their self-made cathastrophe.");
-            //Faction test_faction = new Faction("TESTFAC", "TEST FACTION PLEASE IGNORE");
+            Faction test_faction = new Faction("TESTFAC", "TEST FACTION PLEASE IGNORE");
             //human_faction.Init(facman);
-            //test_faction.Init(facman);
+            test_faction.Init(facman);
 
             //human_faction.AddRelation(test_faction, FactionRelation.Hostile);
-            //test_faction.AddRelation(human_faction, FactionRelation.Hostile);
+            test_faction.AddRelation(player_faction, FactionRelation.Hostile);
 
             root.setBackgroundFlag(TCODBackgroundFlag.Default);
 
-            player = new Player(1300, 1300, 35, "Player", "A ragged and scruffy-looking individual.", '@', new Body(BODY_DEF_HUMAN));
+            player = new Player(1300, 1300, 35, "Player", "A ragged and scruffy-looking individual.", '@', new Body(BODY_DEF_HUMAN), new CharStats(10,10,10));
 
-            player.RegisterLightSource(new LightSource(1300, 1300, 35, 50, 10, "Torch", "A torch.", '!'));
+            player.RegisterLightSource(new LightSource(1300, 1300, 35, 50, 10, "Torch", "A torch.", '!', 1.0d));
             player.Init(TCODColor.yellow, Out, player_faction, new Objects.Action(ActionType.Idle, null, player, 0.0d));
 
             Out.SendMessage("Welcome to [insert game name here]!", Message.MESSAGE_WELCOME);
@@ -593,14 +598,28 @@ namespace ShootyShootyRL
 
             player.SetPosition(player.X, player.Y, map.DropObject(player.X, player.Y, player.Z + 1));
             map.AddCreature(player);
-            
 
-            //testai = new AICreature(302, 300, 15, "TEST", "TEST CREATURE PLEASE IGNORE", 'A');
+            //testai = new AICreature(1301, 1301, 31, "TEST", "TEST CREATURE PLEASE IGNORE", 'A', new Body(BODY_DEF_HUMAN), new CharStats(10,10,10));
             //testai.Init(TCODColor.orange, Out, test_faction, new Objects.Action(ActionType.Idle, null, testai, 0.0d), new WalkerAI(rand.Next(0, 100000000)), map);
             //testai_guid = testai.GUID;
+            //map.AddCreature(testai);
+
+            dummy = new Creature(1299, 1299, 31, "TEST", "A Training Dummy.", 'D', new Body(BODY_DEF_HUMAN), new CharStats(10, 10, 10));
+            dummy.Init(TCODColor.turquoise, Out);
+            map.AddCreature(dummy);
+
+            testgun = new Firearm(1299, 1301, 31, "TEST GUN", "TEST GUN PLEASE IGNORE.", 'F', 5.0d, new Caliber(5.56d, 45.0d), GunType.Pistol);
+            testgun.Init(TCODColor.grey, Out);
+
+            testmag = new Magazine(1301, 1299, 31, "TEST MAGAZINE", "TEST MAG PLEASE IGNORE.", 'M', 0.75d, 30, 30, new Caliber(5.56d, 45.0d), AmmoModifier.Regular);
+            testmag.Init(TCODColor.brass, Out);
+
+            map.AddItem(testgun);
+            map.AddItem(testmag);
+
+
             //AICreature testai2 = new AICreature(290, 290, 15, "TEST2", "TEST CREATURE PLEASE IGNORE", 'B');
             //testai2.Init(TCODColor.orange, Out, test_faction, new Objects.Action(ActionType.Idle, null, testai, 0.0d), new WalkerAI(rand.Next(0, 10000000)), map);
-            //map.AddCreature(testai);
             //map.AddCreature(testai2);
 
             //Item test_item = new Item(1299, 1299, map.DropObject(1299, 1299, 35), "Shimmering rock", "A shining polished rock which seems to change color when you look at it.", (char)'*');
@@ -610,32 +629,32 @@ namespace ShootyShootyRL
             //test_item.Activate();
             //map.AddItem(test_item);
 
-            LightSource test_item2 = new LightSource(1295, 1310, map.DropObject(1299, 1299, 35), 50, 10, "Shimmering Rock", "A shining polished rock which seems to change color when you look at it.", (char)'*');
+            LightSource test_item2 = new LightSource(1295, 1310, map.DropObject(1299, 1299, 35), 50, 10, "Shimmering Rock", "A shining polished rock which seems to change color when you look at it.", (char)'*', 1.0d);
             test_item2.Init(TCODColor.blue, Out);
             test_item2.Activate();
             map.AddItem(test_item2);
 
-            LightSource test_item3 = new LightSource(1315, 1283, map.DropObject(1299, 1299, 35), 50, 10, "Shimmering Rock", "A shining polished rock which seems to change color when you look at it.", (char)'*');
+            LightSource test_item3 = new LightSource(1315, 1283, map.DropObject(1299, 1299, 35), 50, 10, "Shimmering Rock", "A shining polished rock which seems to change color when you look at it.", (char)'*', 1.0d);
             test_item3.Init(TCODColor.green, Out);
             test_item3.Activate();
             map.AddItem(test_item3);
 
-            LightSource test_item4 = new LightSource(1315, 1319, map.DropObject(1299, 1299, 35), 50, 10, "Shimmering Rock", "A shining polished rock which seems to change color when you look at it.", (char)'*');
+            LightSource test_item4 = new LightSource(1315, 1319, map.DropObject(1299, 1299, 35), 50, 10, "Shimmering Rock", "A shining polished rock which seems to change color when you look at it.", (char)'*', 1.0d);
             test_item4.Init(TCODColor.orange, Out);
             test_item4.Activate();
             map.AddItem(test_item4);
 
-            LightSource test_item5 = new LightSource(1291, 1283, map.DropObject(1299, 1299, 35), 50, 10, "Shimmering Rock", "A shining polished rock which seems to change color when you look at it.", (char)'*');
+            LightSource test_item5 = new LightSource(1291, 1283, map.DropObject(1299, 1299, 35), 50, 10, "Shimmering Rock", "A shining polished rock which seems to change color when you look at it.", (char)'*', 1.0d);
             test_item5.Init(TCODColor.red, Out);
             test_item5.Activate();
             map.AddItem(test_item5);
 
-            LightSource test_item6 = new LightSource(1305, 1300, map.DropObject(1299, 1299, 35), 50, 10, "Shimmering Rock", "A shining polished rock which seems to change color when you look at it.", (char)'*');
+            LightSource test_item6 = new LightSource(1305, 1300, map.DropObject(1299, 1299, 35), 50, 10, "Shimmering Rock", "A shining polished rock which seems to change color when you look at it.", (char)'*', 1.0d);
             test_item6.Init(TCODColor.pink, Out);
             test_item6.Activate();
             map.AddItem(test_item6);
 
-            LightSource test_item7 = new LightSource(1291, 1293, map.DropObject(1299, 1299, 35), 50, 10, "Shimmering Rock", "A shining polished rock which seems to change color when you look at it.", (char)'*');
+            LightSource test_item7 = new LightSource(1291, 1293, map.DropObject(1299, 1299, 35), 50, 10, "Shimmering Rock", "A shining polished rock which seems to change color when you look at it.", (char)'*', 1.0d);
             test_item7.Init(TCODColor.violet, Out);
             test_item7.Activate();
             map.AddItem(test_item7);
@@ -914,6 +933,12 @@ namespace ShootyShootyRL
                 DisplayDialog(map.ComposeLookAt(player.X, player.Y, player.Z));
             }
 
+            if (key.Character == 't')
+                player.EquipWeapon(testgun);
+
+            if (key.Character == 'r')
+                player.EquipMagazine(testmag);
+
             if (key.Character == 'q')
                 CancelDialog();
 
@@ -926,7 +951,7 @@ namespace ShootyShootyRL
             {
                 List<LightSource> templ = new List<LightSource>();
 
-                foreach (Item i in map.ItemList.Values)
+                foreach (Item i in map.ItemList.GetValues())
                 {
                     if (i.GetType() == typeof(LightSource))
                     {
@@ -942,7 +967,7 @@ namespace ShootyShootyRL
                 foreach (LightSource ls in templ)
                 {
                     map.ItemList.Remove(ls.GUID);
-                    map.ItemList.Add(ls.GUID, ls);
+                    map.ItemList.Add(ls);
                 }
             }
 

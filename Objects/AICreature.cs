@@ -65,7 +65,7 @@ namespace ShootyShootyRL.Objects
             _ai.Init(this, m);
         }
 
-        public AICreature(int x, int y, int z, String name, String desc, char displaychar, Bodies.Body body):base(x,y,z,name,desc, displaychar, body)
+        public AICreature(int x, int y, int z, String name, String desc, char displaychar, Bodies.Body body, CharStats stats):base(x,y,z,name,desc, displaychar, body, stats)
         {
         }
     }

@@ -34,6 +34,8 @@ namespace ShootyShootyRL.Objects
         public Queue<Action> Actions;
 
         public Body Body;
+        public CharStats Stats;
+        public WeightedInventory<Item> Inventory;
 
         protected double energy;
         protected double energyReg;
@@ -176,7 +178,7 @@ namespace ShootyShootyRL.Objects
             return true;
         }
 
-        public Creature(int x, int y, int z, String name, String desc, char displaychar, Body body)
+        public Creature(int x, int y, int z, String name, String desc, char displaychar, Body body, CharStats stats)
         {
             _guid = System.Guid.NewGuid().ToString();
             this.x = x;
@@ -188,6 +190,8 @@ namespace ShootyShootyRL.Objects
             _char = displaychar;
 
             this.Body = body;
+            this.Stats = stats;
+            Inventory = new WeightedInventory<Item>(Stats.GetCarryCapacity());
 
             energy = 0;
             energyReg = 1.0d;
@@ -198,6 +202,7 @@ namespace ShootyShootyRL.Objects
     public class Player:Creature
     {
         public LightSource Lightsource;
+        public Firearm EquippedWeapon;
 
         protected override bool checkMovement(MovementActionParameters param)
         {
@@ -214,6 +219,9 @@ namespace ShootyShootyRL.Objects
         public override void SetPosition(int x, int y, int z)
         {
             Lightsource.SetPosition(x, y, z);
+            if (EquippedWeapon != null)
+                EquippedWeapon.SetPosition(x, y, z);
+
             base.SetPosition(x, y, z);
         }
 
@@ -222,16 +230,48 @@ namespace ShootyShootyRL.Objects
             Lightsource = ls;
         }
 
+        public void AttackRanged(Creature target)
+        {
+            _messageHandler.SendDebugMessage("######################################");
+            _messageHandler.SendDebugMessage(Name + " tries to attack " + target.Name + "!");
+
+            BodyPart tar_part = target.Body.GetRandomBodyPart();
+
+            _messageHandler.SendDebugMessage(Name + " targets " + target.Name + "'s " + tar_part.Name + "!");
+
+
+        }
+
+        public void EquipMagazine(Magazine m)
+        {
+            if (EquippedWeapon != null)
+            {
+                EquippedWeapon.Reload(m);
+                _messageHandler.SendMessage(Name + " reloads his " + EquippedWeapon.Name + " with a " +  m.Name + ".");
+            }
+        }
+
+        public void EquipWeapon(Firearm f)
+        {
+            EquippedWeapon = f;
+            EquippedWeapon.SetVisible(false);
+
+            _messageHandler.SendMessage(Name + " picks up a " + EquippedWeapon.Name + ".");
+        }
+
         public override void Init(TCODColor fore, MessageHandler messageHandler, Faction fac, Action firstAction)
         {
             Lightsource.Init(fore, messageHandler);
             Lightsource.Activate();
 
+            if (EquippedWeapon != null)
+                EquippedWeapon.Init(fore, messageHandler);
+
             base.Init(fore, messageHandler, fac, firstAction);
         }
 
-        public Player(int x, int y, int z, String name, String desc, char displaychar, Body body)
-            : base(x, y, z, name, desc, displaychar, body)
+        public Player(int x, int y, int z, String name, String desc, char displaychar, Body body, CharStats stats)
+            : base(x, y, z, name, desc, displaychar, body, stats)
         {
             energyReg = 1.1d;
         }

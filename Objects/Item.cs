@@ -26,10 +26,15 @@ namespace ShootyShootyRL.Objects
     [Serializable()]
     public class Item:Object
     {
+
+        public double Weight;
         
         public override void SetPosition(int x, int y, int z)
         {
-            throw new NotImplementedException();
+            this.x = x;
+            this.y = y;
+            this.z = z;
+            //throw new NotImplementedException();
         }
 
         public override bool Save()
@@ -56,7 +61,7 @@ namespace ShootyShootyRL.Objects
             return true;
         }
         
-        public Item(int x, int y, int z, String name, String desc, char displaychar)
+        public Item(int x, int y, int z, String name, String desc, char displaychar, double weight)
         {
             _guid = System.Guid.NewGuid().ToString();
             this.x = x;
@@ -64,6 +69,7 @@ namespace ShootyShootyRL.Objects
             this.z = z;
             _name = name;
             _desc = desc;
+            Weight = weight;
             
             _char = displaychar;
         }

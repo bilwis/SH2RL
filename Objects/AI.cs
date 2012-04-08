@@ -161,15 +161,15 @@ namespace ShootyShootyRL.Objects
                 targetID = null;
                 switchState(AIState.Idling);
 
-                foreach (KeyValuePair<string, Creature> kv in map.CreatureList)
+                foreach (Creature c in map.CreatureList)
                 {
-                    if (Util.CalculateDistance(subject, kv.Value) <= visionRange)
+                    if (Util.CalculateDistance(subject, c) <= visionRange)
                     {
-                        if (eval(kv.Value) == AIEvalResult.Enemy)
+                        if (eval(c) == AIEvalResult.Enemy)
                         {
-                            targetID = kv.Key;
+                            targetID = c.GUID;
                             switchState(AIState.Attacking);
-                            Program.game.Out.SendMessage(subject.Name + " has targeted " + kv.Value.Name + ".");
+                            Program.game.Out.SendMessage(subject.Name + " has targeted " + c.Name + ".");
                         }
                     }
                 }

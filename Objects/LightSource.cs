@@ -83,8 +83,8 @@ namespace ShootyShootyRL.Objects
             }
         }
 
-        public LightSource(int x, int y, int z, int level, int radius, string name, string desc, char displ_char):
-            base(x,y,z,name, desc, displ_char)
+        public LightSource(int x, int y, int z, int level, int radius, string name, string desc, char displ_char, double weight):
+            base(x,y,z,name, desc, displ_char, weight)
         {
             this.x = x;
             this.y = y;
