@@ -63,6 +63,7 @@ namespace ShootyShootyRL.Objects
 
         public double EMovementCost = 15;
         public double EDiagMovementCost = 19;
+        public double ETakeCostPerWeight = 1;
 
         public override void SetVisible(bool value)
         {
@@ -74,6 +75,11 @@ namespace ShootyShootyRL.Objects
             this.x = x;
             this.y = y;
             this.z = z;
+        }
+
+        public void Take(Item i, Map m)
+        {
+            Actions.Enqueue(new Action(ActionType.Take, new TakeActionParameters(i.GUID, m), this, ETakeCostPerWeight * i.Weight));
         }
 
         public void Move(int x, int y, int z, Map m, bool overrideAll = false)
@@ -131,14 +137,35 @@ namespace ShootyShootyRL.Objects
             switch (a.Type)
             {
                 case ActionType.Move:
-                    MovementActionParameters param = (MovementActionParameters)a.Param;
-                    if (checkMovement(param))
+                    MovementActionParameters m_param = (MovementActionParameters)a.Param;
+                    if (checkMovement(m_param))
                     {
-                        SetPosition(param.Target_X, param.Target_Y, param.Target_Z);
+                        SetPosition(m_param.Target_X, m_param.Target_Y, m_param.Target_Z);
                         return true;
                     }
                     else
                         return false;
+
+                case ActionType.Take:
+                    TakeActionParameters t_param = (TakeActionParameters)a.Param;
+                    Item item;
+                    if (!t_param.map.ItemList.TryGetValue(t_param.guid, out item))
+                        return false; //Item not loaded in map
+
+                    if (item.X == x && item.Y == y && item.Z == z)
+                    {
+                        //Pick up
+                        if (!Inventory.Add(item))
+                            return false; //Taking item failed (weight)
+                        //Remove from map
+                        t_param.map.ItemList.Remove(t_param.guid);
+                        if (typeof(Player) == this.GetType())
+                            _messageHandler.SendMessage("Picked up " + item.Name + "!");
+
+                        return true;
+                    }
+
+                    return false; //Item not in same position
             }
             return false;
         }

@@ -68,6 +68,10 @@ namespace ShootyShootyRL.Objects
                     if (param.GetType() != typeof(MovementActionParameters))
                         throw new Exception("Tried to construct Action of type MOVE, but parameters are not MovementActionParameters!");
                     break;
+                case ActionType.Take:
+                    if (param.GetType() != typeof(TakeActionParameters))
+                        throw new Exception("Tried to construct Action of type TAKE, but parameters are not TakeActionParameters!");
+                    break;
             }
 
             this.Param = param;
@@ -93,6 +97,18 @@ namespace ShootyShootyRL.Objects
             Target_X = abs_x;
             Target_Y = abs_y;
             Target_Z = abs_z;
+            map = m;
+        }
+    }
+
+    public class TakeActionParameters : ActionParameters
+    {
+        public Map map;
+        public String guid;
+
+        public TakeActionParameters(String guid, Map m)
+        {
+            this.guid = guid;
             map = m;
         }
     }

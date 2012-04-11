@@ -1575,6 +1575,24 @@ namespace ShootyShootyRL.Mapping
             return temp;
         }
 
+        public SortedDictionary<String, String> ComposePickUp(int abs_x, int abs_y, int abs_z)
+        {
+            if (!isCoordinateLoaded(abs_x, abs_y, abs_z))
+                return null;
+
+            SortedDictionary<String, String> temp = new SortedDictionary<string, string>();
+
+            foreach (Item i in ItemList.GetValues())
+            {
+                if (i.X == abs_x && i.Y == abs_y && i.Z == abs_z)
+                {
+                    temp.Add(i.GUID, i.Name);
+                }
+            }
+
+            return temp;
+        }
+
         #endregion
 
         #region "Creature Handling"

@@ -79,6 +79,7 @@ namespace ShootyShootyRL
         Random rand;
 
         int tar_x = -1, tar_y = -1, tar_z = -1;
+        bool player_pickup;
         ulong turn = 1;
         ulong gameTurn = 1;
 
@@ -97,7 +98,7 @@ namespace ShootyShootyRL
 
         public Game()
         {
-            TCODConsole.setCustomFont("terminal12x12_gs_ro.png", (int)TCODFontFlags.LayoutAsciiInRow);
+            //TCODConsole.setCustomFont("terminal12x12_gs_ro.png", (int)TCODFontFlags.LayoutAsciiInRow);
             TCODConsole.initRoot(WINDOW_WIDTH, WINDOW_HEIGHT, "ShootyShooty RL", false,TCODRendererType.SDL);
             TCODSystem.setFps(60);
 
@@ -350,6 +351,7 @@ namespace ShootyShootyRL
         public void Run()
         {
             //Stopwatch sw = new Stopwatch();
+
             int menu_in = menu();
 
             if (menu_in == -1)
@@ -390,6 +392,35 @@ namespace ShootyShootyRL
                         if (tar_x != player.X || tar_y != player.Y || tar_z != player.Z)
                         {
                             player.Move(tar_x, tar_y, tar_z, map);
+                        }
+                        if (player_pickup)
+                        {
+                            //TODO: DO IT LIVE; WITH FUCKING GENERICS YOU IMBECILE!
+                            SortedDictionary<string, string> guid_name_dict;
+                            SortedDictionary<char, string> char_name_dict = new SortedDictionary<char,string>();
+                            SortedDictionary<char, string> char_guid_dict = new SortedDictionary<char,string>();
+                            Dictionary<int, char> int_char_dict = new Dictionary<int, char>();
+
+                            int ch_int = 97;
+                            int i = 0;
+
+                            guid_name_dict = map.ComposePickUp(player.X, player.Y, player.Z);
+
+                            foreach (KeyValuePair<string, string> kv in guid_name_dict)
+                            {
+                                char_name_dict.Add((char)ch_int, kv.Value);
+                                char_guid_dict.Add((char)ch_int, kv.Key);
+                                int_char_dict.Add(i, (char)ch_int);
+
+                                i++;
+                                ch_int++;
+                            }
+
+                            int resp = DisplayInputDialog("Choose which Item to pick up:", char_name_dict);
+
+                            player.Take(map.ItemList[char_guid_dict[int_char_dict[resp]]], map);
+
+                            player_pickup = false;
                         }
 
                         Stopwatch light = new Stopwatch();
@@ -891,6 +922,17 @@ namespace ShootyShootyRL
 
             #endregion
 
+            if (key.Character == 't')
+            {
+                player_pickup = true;
+                return true;
+            }
+
+            if (key.Character == 'i')
+            {
+                //Display inventory
+            }
+
             if (key.KeyCode == TCODKeyCode.F1)
             {
                 tar_x = 1300;
@@ -933,11 +975,6 @@ namespace ShootyShootyRL
                 DisplayDialog(map.ComposeLookAt(player.X, player.Y, player.Z));
             }
 
-            if (key.Character == 't')
-                player.EquipWeapon(testgun);
-
-            if (key.Character == 'r')
-                player.EquipMagazine(testmag);
 
             if (key.Character == 'q')
                 CancelDialog();
