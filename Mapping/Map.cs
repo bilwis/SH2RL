@@ -35,7 +35,7 @@ namespace ShootyShootyRL.Mapping
     /// </summary>
     public class Map
     {
-        private static bool DEBUG_OUTPUT = true;
+        private static bool DEBUG_OUTPUT = false;
 
         object cellLock = new object();
         Cell[, ,] cells;
@@ -2047,9 +2047,11 @@ namespace ShootyShootyRL.Mapping
 
             //Report the time it took to render one frame! (but only if in Debug mode!)
             if (DEBUG_OUTPUT)
+            {
                 _out.SendMessage("Drew frame, printed " + debug_prints + " tiles, took " + sw.ElapsedMilliseconds + "ms.");
 
-            _out.SendMessage("Light Level at Player Pos:  " + cells[1, 1, 1].GetLightLevel(Player.X, Player.Y, Player.Z));
+                _out.SendMessage("Light Level at Player Pos:  " + cells[1, 1, 1].GetLightLevel(Player.X, Player.Y, Player.Z));
+            }
 
             #region "Object rendering"
             //RenderAll the player

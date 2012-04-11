@@ -30,9 +30,11 @@ namespace ShootyShootyRL
         public TCODColor BackColor;
 
         public static MessageColor MESSAGE_ERROR = new MessageColor(TCODColor.red, TCODColor.darkerCrimson);
-        public static MessageColor MESSAGE_DEFAULT = new MessageColor(TCODColor.darkerGrey, null);
+        public static MessageColor MESSAGE_DEFAULT = new MessageColor(TCODColor.darkAzure, null);
+        public static MessageColor MESSAGE_HIGHLIGHT = new MessageColor(TCODColor.azure, null);
         public static MessageColor MESSAGE_DEBUG = new MessageColor(null, null);
-        public static MessageColor MESSAGE_WELCOME = new MessageColor(TCODColor.darkGreen, TCODColor.darkYellow);
+        public static MessageColor MESSAGE_INFO = new MessageColor(TCODColor.darkerAzure, null);
+        public static MessageColor MESSAGE_WELCOME = new MessageColor(TCODColor.azure, null);
 
         public Message(String text, TCODColor fore, TCODColor back)
         {

@@ -13,6 +13,7 @@ using ShootyShootyRL.Mapping;
 using ShootyShootyRL.Objects;
 using ShootyShootyRL.Systems;
 using ShootyShootyRL.Objects.Bodies;
+//using ShootyShootyRL.Systems.Forms;
 
 //************************************************************//
 //*                SHOOTY SHOOTY ROGUELIKE                   *//
@@ -32,16 +33,25 @@ using ShootyShootyRL.Objects.Bodies;
 
 namespace ShootyShootyRL
 {
-    //TODO: Fix dat Z-cell stuff!
+    enum MainDisplayMode
+    {
+        Game = 0,
+        Inventory = 1,
+        Character = 2,
+        Crafting = 3,
+        Log = 4
+    }
+
 
     class Game
     {
         static string currentVersionCode = "pre2";
 
-        static int WINDOW_WIDTH = 100;
-        static int WINDOW_HEIGHT = 80;
-        static float MAIN_TO_STATUS_RATIO = 0.8f;
-        static float DIALOG_RATIO = 0.175f; 
+        static int WINDOW_WIDTH = 130;
+        static int WINDOW_HEIGHT = (int)3 * WINDOW_WIDTH / 4; //4:3 Aspect
+        static float MAIN_TO_STATUS_RATIO = 0.75f;
+        static float DIALOG_RATIO = 0.175f;
+        static float STATUS_TO_MESSAGES_RATIO = 0.275f;
 
         static int DIALOG_HEIGHT = (int)Math.Ceiling(WINDOW_HEIGHT * (DIALOG_RATIO));
         static int MAIN_HEIGHT = (int)Math.Floor(WINDOW_HEIGHT * (MAIN_TO_STATUS_RATIO));
@@ -55,12 +65,17 @@ namespace ShootyShootyRL
         public bool MULTITHREADED_LOADING = true;
 
         TCODConsole root;
+
         TCODConsole status;
+        TCODConsole messages;
+
         TCODConsole main;
         TCODConsole dialog;
         TCODConsole effects;
 
-        SQLiteConnection dbconn; 
+        MainDisplayMode mdm = MainDisplayMode.Game;
+
+        SQLiteConnection dbconn;
 
         bool endGame = false;
 
@@ -93,19 +108,29 @@ namespace ShootyShootyRL
         //DEBUG VARS
         string test_item_guid;
         string testai_guid;
-        ParticleEmitter emit = new ParticleEmitter(1300,1300,31,1.5f,70f,0.75f,1.0f,-2f,2f);
+        ParticleEmitter emit = new ParticleEmitter(1300, 1300, 31, 1.5f, 70f, 0.75f, 1.0f, -2f, 2f);
         int particle_count = 0;
 
         public Game()
         {
             //TCODConsole.setCustomFont("terminal12x12_gs_ro.png", (int)TCODFontFlags.LayoutAsciiInRow);
-            TCODConsole.initRoot(WINDOW_WIDTH, WINDOW_HEIGHT, "ShootyShooty RL", false,TCODRendererType.SDL);
+            TCODSystem.forceFullscreenResolution(1680, 1050);
+            TCODConsole.initRoot(WINDOW_WIDTH, WINDOW_HEIGHT, "ShootyShooty RL", false, TCODRendererType.SDL);
             TCODSystem.setFps(60);
 
+            //TCODConsole.setFullscreen(true);
+
             root = TCODConsole.root;
-            status = new TCODConsole(WINDOW_WIDTH, STATUS_HEIGHT);
+
             main = new TCODConsole(WINDOW_WIDTH, MAIN_HEIGHT);
+
+            status = new TCODConsole((int)(WINDOW_WIDTH * STATUS_TO_MESSAGES_RATIO), STATUS_HEIGHT);
+            //statsPanel = new Panel((int)(WINDOW_HEIGHT * MAIN_TO_STATUS_RATIO), 0, WINDOW_WIDTH, STATUS_HEIGHT, ref status);
+
             dialog = new TCODConsole(WINDOW_WIDTH, DIALOG_HEIGHT);
+            //dialogPanel = new Panel(0, 0, WINDOW_WIDTH, DIALOG_HEIGHT, ref dialog);
+
+            messages = new TCODConsole((int)Math.Ceiling(WINDOW_WIDTH * (1.0f - STATUS_TO_MESSAGES_RATIO)), STATUS_HEIGHT);
             effects = new TCODConsole(WINDOW_WIDTH, MAIN_HEIGHT);
 
             emit.Init(TCODColor.orange, 20);
@@ -135,7 +160,7 @@ namespace ShootyShootyRL
             for (int j = 0; j < profiles.Count; j++)
             {
                 temp = profiles[j].Split('\\');
-                profiles[j] = temp[temp.Length-1];
+                profiles[j] = temp[temp.Length - 1];
             }
 
             root.setForegroundColor(TCODColor.darkerLime);
@@ -210,7 +235,7 @@ namespace ShootyShootyRL
                         string seed_string = Util.GetStringFromUser("Please enter the map seed: ", WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2, root);
                         if (!UInt32.TryParse(seed_string, out seed))
                             seed = (uint)seed_string.GetHashCode();
-                        
+
                         return 0;
                     }
 
@@ -226,7 +251,7 @@ namespace ShootyShootyRL
                                 if (selected == i)
                                     root.setBackgroundColor(TCODColor.sepia);
 
-                                root.print((WINDOW_WIDTH / 2) - (profiles[i].Length / 2), (WINDOW_HEIGHT / 2) - (profiles.Count /2) + i, profiles[i]);
+                                root.print((WINDOW_WIDTH / 2) - (profiles[i].Length / 2), (WINDOW_HEIGHT / 2) - (profiles.Count / 2) + i, profiles[i]);
 
                                 if (selected == i)
                                     root.setBackgroundColor(TCODColor.black);
@@ -241,7 +266,7 @@ namespace ShootyShootyRL
                                 if (selected > 0)
                                     selected--;
                                 else if (selected == 0)
-                                    selected = profiles.Count -1;
+                                    selected = profiles.Count - 1;
                             }
                             if (key.KeyCode == TCODKeyCode.KeypadAdd)
                             {
@@ -254,7 +279,7 @@ namespace ShootyShootyRL
                             {
                                 if (profiles[selected] == "Back")
                                 {
-                                    root.rect(1, (WINDOW_HEIGHT / 2) - (profiles.Count / 2) -1, WINDOW_WIDTH - 2, profiles.Count + 1, true);
+                                    root.rect(1, (WINDOW_HEIGHT / 2) - (profiles.Count / 2) - 1, WINDOW_WIDTH - 2, profiles.Count + 1, true);
                                     selected = 0;
                                     break;
                                 }
@@ -356,7 +381,7 @@ namespace ShootyShootyRL
 
             if (menu_in == -1)
                 return;
-   
+
             if (menu_in == 0)
                 InitNew(ProfileName, seed);
             if (menu_in == 1)
@@ -397,8 +422,8 @@ namespace ShootyShootyRL
                         {
                             //TODO: DO IT LIVE; WITH FUCKING GENERICS YOU IMBECILE!
                             SortedDictionary<string, string> guid_name_dict;
-                            SortedDictionary<char, string> char_name_dict = new SortedDictionary<char,string>();
-                            SortedDictionary<char, string> char_guid_dict = new SortedDictionary<char,string>();
+                            SortedDictionary<char, string> char_name_dict = new SortedDictionary<char, string>();
+                            SortedDictionary<char, string> char_guid_dict = new SortedDictionary<char, string>();
                             Dictionary<int, char> int_char_dict = new Dictionary<int, char>();
 
                             int ch_int = 97;
@@ -432,7 +457,7 @@ namespace ShootyShootyRL
                         }
 
                         light.Stop();
-                        Out.SendMessage("Ticking through to next action took " + light.ElapsedMilliseconds + "ms.");
+                        //Out.SendMessage("Ticking through to next action took " + light.ElapsedMilliseconds + "ms.", Message.MESSAGE_INFO);
 
                         redraw = true;
                         turn++;
@@ -487,7 +512,7 @@ namespace ShootyShootyRL
                             throw new Exception("Error while loading profile: save.dat not at current version");
                         break;
                     case "MapSeed":
-                        if (!UInt32.TryParse(temp[1],out seed))
+                        if (!UInt32.TryParse(temp[1], out seed))
                             throw new Exception("Error while loading profile: MapSeed is not a number.");
                         break;
                     case "FactionData":
@@ -562,7 +587,7 @@ namespace ShootyShootyRL
 
             //SETUP MAP AND WORLDMAP, ADD PLAYER
             wm = new WorldMap(seed, dbconn, wm_param);
-            map = new Map(player, wm, Out, facman, dbconn,  MAIN_HEIGHT - 2, WINDOW_WIDTH - 2);
+            map = new Map(player, wm, Out, facman, dbconn, MAIN_HEIGHT - 2, WINDOW_WIDTH - 2);
 
             RenderLoadingScreen();
 
@@ -585,7 +610,7 @@ namespace ShootyShootyRL
             ProfilePath = newPath;
 
             InitDB(newPath);
-            
+
             rand = new Random();
 
             facman = new FactionManager();
@@ -602,7 +627,7 @@ namespace ShootyShootyRL
 
             root.setBackgroundFlag(TCODBackgroundFlag.Default);
 
-            player = new Player(1300, 1300, 35, "Player", "A ragged and scruffy-looking individual.", '@', new Body(BODY_DEF_HUMAN), new CharStats(10,10,10));
+            player = new Player(1300, 1300, 35, "Player", "A ragged and scruffy-looking individual.", '@', new Body(BODY_DEF_HUMAN), new CharStats(10, 10, 10));
 
             player.RegisterLightSource(new LightSource(1300, 1300, 35, 50, 10, "Torch", "A torch.", '!', 1.0d));
             player.Init(TCODColor.yellow, Out, player_faction, new Objects.Action(ActionType.Idle, null, player, 0.0d));
@@ -696,7 +721,7 @@ namespace ShootyShootyRL
             //Save Map
             map.UnloadMap();
 
-            FileStream fstream = new FileStream(System.IO.Path.Combine(ProfilePath,"save.dat"), FileMode.Create);
+            FileStream fstream = new FileStream(System.IO.Path.Combine(ProfilePath, "save.dat"), FileMode.Create);
             StreamWriter swriter = new StreamWriter(fstream);
 
             swriter.WriteLine("Version=" + currentVersionCode);
@@ -850,7 +875,7 @@ namespace ShootyShootyRL
 
             command.Dispose();
         }
-        
+
         public void Tick()
         {
             if (gameTurn == ulong.MaxValue - 1)
@@ -865,7 +890,7 @@ namespace ShootyShootyRL
             map.Tick();
 
             gameTurn++;
-            
+
         }
 
         public bool HandleInput(TCODKey key)
@@ -940,7 +965,7 @@ namespace ShootyShootyRL
                 tar_z = map.DropObject(1300, 1300, 49);
                 return true;
             }
-            
+
 
             if (key.KeyCode == TCODKeyCode.F2)
             {
@@ -1013,7 +1038,7 @@ namespace ShootyShootyRL
                 GC.Collect();
                 return true;
             }
-            
+
 
             if (key.KeyCode == TCODKeyCode.Escape)
             {
@@ -1030,7 +1055,7 @@ namespace ShootyShootyRL
             return false;
         }
 
-        public void RenderEffects(bool render=true)
+        public void RenderEffects(bool render = true)
         {
             Random rand = new Random();
             bool render_dialog = (current_dialog == null) ? false : true;
@@ -1084,54 +1109,93 @@ namespace ShootyShootyRL
             }
         }
 
+        public void RenderMessages()
+        {
+            messages.setForegroundColor(TCODColor.darkAzure); //darkOrange
+            messages.setBackgroundColor(TCODColor.darkestBlue); //brass
+            messages.setBackgroundFlag(TCODBackgroundFlag.Set);
+            messages.printFrame(0, 0, (int)Math.Ceiling(WINDOW_WIDTH * (1.0f - STATUS_TO_MESSAGES_RATIO)), STATUS_HEIGHT);
+
+            messages.setBackgroundFlag(TCODBackgroundFlag.Default);
+            messages.setForegroundColor(TCODColor.darkerGrey);
+
+            Out.Render(messages); //Print the message log, y'all
+        }
+
+        public void RenderDebugInfo(TCODConsole con)
+        {
+            con.setForegroundColor(TCODColor.white);
+            con.print(2, 0, "Turn: " + turn + " | Gameturn: " + gameTurn);
+            con.print(2, 1, "Z_LEVEL: " + player.Z);
+            string mem_use = "Memory Usage: " + System.Environment.WorkingSet / 1048576 + " MB";
+            con.print(WINDOW_WIDTH - (mem_use.Length + 1), 1, mem_use);
+
+            if (map.initialized)
+                con.setForegroundColor(TCODColor.green);
+            else
+                con.setForegroundColor(TCODColor.red);
+
+            con.print(WINDOW_WIDTH - 1, 0, "+");
+        }
+
+        public void RenderStatus()
+        {
+            status.setForegroundColor(TCODColor.darkAzure);
+            status.setBackgroundColor(TCODColor.darkestBlue);
+            status.setBackgroundFlag(TCODBackgroundFlag.Set);
+            status.printFrame(0, 0, (int)(WINDOW_WIDTH * (STATUS_TO_MESSAGES_RATIO)), STATUS_HEIGHT);
+
+            status.setBackgroundFlag(TCODBackgroundFlag.Default);
+
+            status.print(1, 1, "TESTCHAR: Level 1 Warrior");
+
+            status.print(1, 3, "XP: 0/100");
+
+            status.print(1, 5, "STATUS");
+            status.print(2, 6, "R ARM: Fine");
+            status.print(2, 7, "L ARM: Fine");
+            status.print(2, 8, "R LEG: Fine");
+            status.print(2, 9, "L LEG: Fine");
+            status.print(2, 10, "TORSO: Fine");
+            status.print(2, 11, "HEAD : Fine");
+
+            status.print(1, 13, "INVENTORY");
+            status.print(2, 14, "RANGED: [insert weapon here]");
+            status.print(4, 15, "AMMO: 10/12");
+            status.print(4, 16, "MAGS: 4");
+            status.print(2, 17, "MELEE : [insert weapon here]");
+            status.print(2, 18, "THROWN: [insert weapon here]");
+            status.print(4, 19, "AMMO: 12");
+
+            status.print(2, 21, "WEIGHT: " + player.Inventory.GetWeight() + "/" + player.Inventory.GetCapacity());
+
+
+        }
+
         public void RenderAll()
         {
             bool render_dialog = (current_dialog == null) ? false : true;
+            int main_x = render_dialog ? DIALOG_HEIGHT + 1 : 1;
+            int main_height = render_dialog ? MAIN_HEIGHT - DIALOG_HEIGHT - 2: MAIN_HEIGHT -2;
 
             main.setBackgroundColor(TCODColor.black);
             main.clear();
 
-            main.setForegroundColor(TCODColor.darkerLime);
+            main.setForegroundColor(TCODColor.darkGreen);
             main.printFrame(0, !render_dialog ? 0 : DIALOG_HEIGHT, WINDOW_WIDTH, !render_dialog ? MAIN_HEIGHT : MAIN_HEIGHT - DIALOG_HEIGHT);
 
-            //
-            if (render_dialog)
-                map.Render(main, 1, DIALOG_HEIGHT + 1, WINDOW_WIDTH - 2, MAIN_HEIGHT - DIALOG_HEIGHT - 2);
-            else
-                map.Render(main, 1, 1, WINDOW_WIDTH - 2, MAIN_HEIGHT - 2);
-
-            main.setForegroundColor(TCODColor.white);
-            main.print(2, 0, "Turn: " + turn + " | Gameturn: " + gameTurn);
-            main.print(2, 1, "Z_LEVEL: " + player.Z);
-            string mem_use = "Memory Usage: " + System.Environment.WorkingSet / 1048576 + " MB";
-            main.print(WINDOW_WIDTH - (mem_use.Length +1), 1, mem_use);
+            switch (mdm)
+            {
+                case MainDisplayMode.Game:
+                    map.Render(main, 1, main_x, WINDOW_WIDTH - 2, main_height);
+                    break;
+            }
             
-
-            if (map.initialized)
-                main.setForegroundColor(TCODColor.green);
-            else
-                main.setForegroundColor(TCODColor.red);
-
-            main.print(WINDOW_WIDTH - 1, 0, "+");
-
-            RenderEffects(false);
-
-            TCODConsole.blit(main, 0, 0, WINDOW_WIDTH, MAIN_HEIGHT, root, 0, 0);
-            TCODConsole.blit(effects, 0, 0, WINDOW_WIDTH, MAIN_HEIGHT, root, 0, 0, EFFECTS_ALPHA, EFFECTS_ALPHA);
-
-            status.setForegroundColor(TCODColor.darkerOrange);
-            status.setBackgroundColor(TCODColor.brass);
-            status.setBackgroundFlag(TCODBackgroundFlag.Set);
-            status.printFrame(0, 0, WINDOW_WIDTH, STATUS_HEIGHT);
-
-            status.setBackgroundFlag(TCODBackgroundFlag.Default);
-            status.setForegroundColor(TCODColor.darkerGrey);
-
-            Out.Render(status); //Print the message log, y'all
-            TCODConsole.blit(status, 0, 0, WINDOW_WIDTH, STATUS_HEIGHT, root, 0, MAIN_HEIGHT);
 
             if (render_dialog)
             {
+                //map.Render(main, 1, DIALOG_HEIGHT + 1, WINDOW_WIDTH - 2, MAIN_HEIGHT - DIALOG_HEIGHT - 2);
+
                 if (current_dialog.GetType() == typeof(Dialog))
                 {
                     Dialog d = (Dialog)current_dialog;
@@ -1142,9 +1206,24 @@ namespace ShootyShootyRL
                     InputDialog d = (InputDialog)current_dialog;
                     d.Render(dialog);
                 }
-
-                TCODConsole.blit(dialog, 0, 0, WINDOW_WIDTH, DIALOG_HEIGHT, root, 0, 0);
             }
+            else
+            {
+                RenderDebugInfo(main);
+            }
+            TCODConsole.blit(main, 0, 0, WINDOW_WIDTH, MAIN_HEIGHT, root, 0, 0);
+
+            RenderEffects(false);
+            TCODConsole.blit(effects, 0, 0, WINDOW_WIDTH, MAIN_HEIGHT, root, 0, 0, EFFECTS_ALPHA, EFFECTS_ALPHA);
+
+            RenderMessages();
+            TCODConsole.blit(messages, 0, 0, (int)Math.Ceiling(WINDOW_WIDTH * (1.0f - STATUS_TO_MESSAGES_RATIO)), STATUS_HEIGHT, root, (int)(WINDOW_WIDTH * STATUS_TO_MESSAGES_RATIO), MAIN_HEIGHT);
+
+            RenderStatus();
+            TCODConsole.blit(status, 0, 0, (int)(WINDOW_WIDTH * (STATUS_TO_MESSAGES_RATIO)), STATUS_HEIGHT, root, 0, MAIN_HEIGHT);
+
+            if (render_dialog)
+                TCODConsole.blit(dialog, 0, 0, WINDOW_WIDTH, DIALOG_HEIGHT, root, 0, 0);
 
             TCODConsole.flush();
 
