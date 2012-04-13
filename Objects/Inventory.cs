@@ -69,6 +69,11 @@ namespace ShootyShootyRL.Objects
             return false;
         }
 
+        public List<T> GetItemList()
+        {
+            return inv_dict.Values.ToList<T>();
+        }
+
         public bool ContainsKey(String guid)
         {
             return inv_dict.ContainsKey(guid);

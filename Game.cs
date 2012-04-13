@@ -94,6 +94,7 @@ namespace ShootyShootyRL
         Random rand;
 
         int tar_x = -1, tar_y = -1, tar_z = -1;
+        int menu_selection = 0;
         bool player_pickup;
         ulong turn = 1;
         ulong gameTurn = 1;
@@ -115,7 +116,7 @@ namespace ShootyShootyRL
         {
             //TCODConsole.setCustomFont("terminal12x12_gs_ro.png", (int)TCODFontFlags.LayoutAsciiInRow);
             TCODSystem.forceFullscreenResolution(1680, 1050);
-            TCODConsole.initRoot(WINDOW_WIDTH, WINDOW_HEIGHT, "ShootyShooty RL", false, TCODRendererType.SDL);
+            TCODConsole.initRoot(WINDOW_WIDTH, WINDOW_HEIGHT, "ShootyShooty RL", false, TCODRendererType.GLSL);
             TCODSystem.setFps(60);
 
             //TCODConsole.setFullscreen(true);
@@ -664,14 +665,21 @@ namespace ShootyShootyRL
             dummy.Init(TCODColor.turquoise, Out);
             map.AddCreature(dummy);
 
-            testgun = new Firearm(1299, 1301, 31, "TEST GUN", "TEST GUN PLEASE IGNORE.", 'F', 5.0d, new Caliber(5.56d, 45.0d), GunType.Pistol);
+            List<FireMode> gl_fm = new List<FireMode>();
+            gl_fm.Add(FireMode.Semi);
+            gl_fm.Add(FireMode.Burst2);
+            testgun = new Firearm(1299, 1301, 31, "Glock 17C", "A semi-automatic pistol manufactured by Austrian Glock Ges. m.b.H. Large parts of it are manufactured from extremely resilient high-strengh polymer and it chambers NATO standard 9x19mm Parabellum rounds. It has a magazine capacity of 17 rounds. The C Variant features slots cut into the barrel and slide compensating for muzzle rise and recoil. It is one of the most commonly used firearms in US law enforcement and enjoys great popularity in the gun community.", 'F', 5.0d, new Caliber(9d, 19d), GunType.Pistol, gl_fm, 17);
             testgun.Init(TCODColor.grey, Out);
 
-            testmag = new Magazine(1301, 1299, 31, "TEST MAGAZINE", "TEST MAG PLEASE IGNORE.", 'M', 0.75d, 30, 30, new Caliber(5.56d, 45.0d), AmmoModifier.Regular);
+            testmag = new Magazine(1301, 1299, 31, "9mm Clip", "TEST MAG PLEASE IGNORE.", 'M', 0.75d, 30, 30, new Caliber(5.56d, 45.0d), AmmoModifier.Regular);
             testmag.Init(TCODColor.brass, Out);
+
+            Item temp = new Item(1302, 1300, 31, "Apple", "A tasty red apple. Possibly Braeburn.", 'F', 0.3d);
+            temp.Init(TCODColor.red, Out);
 
             map.AddItem(testgun);
             map.AddItem(testmag);
+            map.AddItem(temp);
 
 
             //AICreature testai2 = new AICreature(290, 290, 15, "TEST2", "TEST CREATURE PLEASE IGNORE", 'B');
@@ -902,6 +910,7 @@ namespace ShootyShootyRL
 
             switch (key.KeyCode)
             {
+                //MOVEMENT
                 case TCODKeyCode.KeypadEight:
                     tar_y = player.Y - 1;
                     return true;
@@ -933,6 +942,14 @@ namespace ShootyShootyRL
                 case TCODKeyCode.KeypadFive:
                     return true;
 
+                //SELECTION
+                case TCODKeyCode.KeypadAdd:
+                    menu_selection++;
+                    return true;
+                case TCODKeyCode.KeypadSubtract:
+                    menu_selection--;
+                    return true;
+
             }
 
             switch (key.Character)
@@ -955,7 +972,15 @@ namespace ShootyShootyRL
 
             if (key.Character == 'i')
             {
-                //Display inventory
+                mdm = MainDisplayMode.Inventory;
+                menu_selection = 0;
+                return true;
+            }
+
+            if (key.Character == 'q')
+            {
+                mdm = MainDisplayMode.Game;
+                CancelDialog();
             }
 
             if (key.KeyCode == TCODKeyCode.F1)
@@ -1001,8 +1026,6 @@ namespace ShootyShootyRL
             }
 
 
-            if (key.Character == 'q')
-                CancelDialog();
 
             if (key.Character == 'l')
             {
@@ -1172,11 +1195,159 @@ namespace ShootyShootyRL
 
         }
 
+        public void RenderInventory(TCODConsole con, int con_x, int con_y, int width, int height)
+        {
+            con.setForegroundColor(TCODColor.darkAzure);
+            con.setBackgroundColor(TCODColor.darkestBlue);
+            con.setBackgroundFlag(TCODBackgroundFlag.Set);
+
+            con.printFrame(con_x + 1, con_y + 1, width - 2, height - 2);
+
+
+            con.setBackgroundFlag(TCODBackgroundFlag.Default);
+
+            con.vline(width / 2, con_y + 2 + 5, height - 4 - 5);
+            con.hline(con_x + 2, con_y + 1 + 5, width - 4);
+
+            con.print(con_x + 2, con_y + 2, "GRZ64 INTEGRATED BACKPACK INTERFACE V1.14 REV 1984");
+            con.print(con_x + 2, con_y + 3, "UNREGISTERED TRIAL VERSION");
+
+            con.print(con_x + 2, con_y + 5, "LOADING INVENTORY DATA...");
+
+            if (player.Inventory.Count > 0)
+            {
+                int cap = (height - 5) - (con_y + 7);
+                int count = player.Inventory.Count;
+
+                if (menu_selection >= count)
+                    menu_selection = (menu_selection - count);
+
+                if (menu_selection < 0)
+                    menu_selection = count - 1;
+
+                int top = menu_selection > cap ? (menu_selection - cap) : 0;
+                int bottom = top + count > cap ? cap : top + count;
+
+                int it = 0;
+
+                List<Item> item_list = player.Inventory.GetItemList();
+                Item sel_item = item_list[menu_selection];
+
+                //Item list
+                for (int i = top; i < bottom; i++)
+                {
+                    if (i == menu_selection)
+                    {
+                        //con.setBackgroundFlag(TCODBackgroundFlag.Set);
+                        //con.setBackgroundColor(TCODColor.azure);
+                        con.setForegroundColor(TCODColor.azure);
+                    }
+                    if (i == menu_selection + 1)
+                    {
+                        con.setForegroundColor(TCODColor.darkAzure);
+                    }
+
+                    con.print(con_x + 3, con_y + 7 + it, item_list[i].Name);
+                    it++;
+                }
+
+
+                con.setForegroundColor(TCODColor.darkAzure);
+                int left_offset = width / 2 + 1;
+                int top_offset = con_y + 7;
+
+                //Item stats
+                con.print(left_offset, top_offset + 0, "NAME         : " + sel_item.Name);
+                con.print(left_offset, top_offset + 1, "WEIGHT       : " + sel_item.Weight);
+
+                // type specifics
+                if (sel_item.GetType() == typeof(Firearm))
+                {
+                    Firearm f = (Firearm)sel_item;
+                    con.print(left_offset, top_offset + 3, "TYPE         : Firearm");
+                    con.print(left_offset, top_offset + 5, "CLASS        : " + f.type.ToString());
+
+                    String fm_str = "";
+
+                    foreach (FireMode fm in f.modes)
+                    {
+                        fm_str += fm.ToString() + " ";
+                    }
+                    con.print(left_offset, top_offset + 6, "FIREMODES    : " + fm_str);
+
+                    con.print(left_offset, top_offset + 8, "CALIBER      : " + f.caliber.ToString());
+                    con.print(left_offset, top_offset + 9, "MAG. CAPACITY: " + f.MagazineCapacity);
+
+                }
+
+
+                //Item description
+                List<String> lines = wrap(sel_item.Description, width / 2 - 2);
+                top_offset = con_y + (int)(height * 0.45d);
+
+                for (int j = 0; j < lines.Count; j++)
+                {
+                    con.print(left_offset, top_offset + j, lines[j]);
+                }
+
+
+                con.hline(left_offset, top_offset - 1, width / 2 - 2);
+
+                //Item actions
+                con.hline(width / 2 + 1, height - 4 - 5, width / 2 - 2);
+                con.print(width / 2 + 2, height - 4 - 4, "R/M/T - Equip Rngd/Mlee/Thrwn");
+                con.print(width / 2 + 2, height - 4 - 3, "    E - Equip Armor");
+                con.print(width / 2 + 2, height - 4 - 2, "    D - Drop Item");
+                con.print(width / 2 + 2, height - 4 - 1, "    Q - Quit");
+                con.print(width / 2 + 2, height - 4 + 0, "  +,- - Select");
+                con.print(width / 2 + 2, height - 4 + 1, "    C - Consume");
+                con.print(width / 2 + 2, height - 4 + 2, "    U - Use");
+            }
+        }
+
+        private List<String> wrap(String str, int maxchars)
+        {
+            string temp;
+            List<String> lines = new List<string>();
+
+            if (str == null || str == "")
+                return null;
+
+            //Oh god the horror that is this function
+            //
+            //Further down, lines are printed from latest to newest (added to "lines")
+            //so in order to display multiline messages correctly, the last of the multiple
+            //lines must be added to lines first and the first last. This is done via 
+            //a temporary array which is filled from highest to lowest and then added to lines.
+            int templines = (int)Math.Ceiling((double)str.Length / (double)maxchars);
+            string[] temparr = new string[templines];
+            int k = templines - 1;
+
+            temp = str;
+            while (temp.Length > maxchars)
+            {
+                temparr[k] = temp.Substring(0, maxchars);
+                temp = temp.Remove(0, maxchars);
+                k--;
+            }
+            temparr[k] = temp;
+
+            foreach (String s in temparr)
+            {
+                lines.Add(s);
+            }
+
+            lines.Reverse();    //WHY THE FU** DID I NOT KNOW THIS FUNCTION BEFORE 
+            //I WROTE THIS HORRIFYING MESSAGEHANDLER RENDER FUNCTION
+
+            return lines;
+        }
+
         public void RenderAll()
         {
             bool render_dialog = (current_dialog == null) ? false : true;
-            int main_x = render_dialog ? DIALOG_HEIGHT + 1 : 1;
-            int main_height = render_dialog ? MAIN_HEIGHT - DIALOG_HEIGHT - 2: MAIN_HEIGHT -2;
+            int main_y = render_dialog ? DIALOG_HEIGHT + 1 : 1;
+            int main_height = render_dialog ? MAIN_HEIGHT - DIALOG_HEIGHT - 2 : MAIN_HEIGHT - 2;
 
             main.setBackgroundColor(TCODColor.black);
             main.clear();
@@ -1187,10 +1358,14 @@ namespace ShootyShootyRL
             switch (mdm)
             {
                 case MainDisplayMode.Game:
-                    map.Render(main, 1, main_x, WINDOW_WIDTH - 2, main_height);
+                    map.Render(main, 1, main_y, WINDOW_WIDTH - 2, main_height);
+                    break;
+                case MainDisplayMode.Inventory:
+                    RenderInventory(main, 1, main_y, WINDOW_WIDTH / 2 - 1, main_height);
+                    map.Render(main, WINDOW_WIDTH / 2, main_y, WINDOW_WIDTH / 2 - 1, main_height);
                     break;
             }
-            
+
 
             if (render_dialog)
             {

@@ -49,6 +49,27 @@ namespace ShootyShootyRL.Objects
             Diameter = diam;
             Length = len;
         }
+
+        public String ToString()
+        {
+            return "" + Diameter + "x" + Length + "mm";
+        }
+
+        public static bool operator ==(Caliber c1, Caliber c2)
+        {
+            if (c1.Diameter == c2.Diameter && c1.Length == c2.Length)
+                return true;
+
+            return false;
+        }
+
+        public static bool operator !=(Caliber c1, Caliber c2)
+        {
+            if (c1.Diameter == c2.Diameter && c1.Length == c2.Length)
+                return false;
+
+            return true;
+        }
     }
 
     [Serializable()]
