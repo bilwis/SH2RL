@@ -34,7 +34,9 @@ namespace ShootyShootyRL.Objects
         Interact = 3,
         Drop = 4,
         Take = 5,
-        Idle = 6
+        Idle = 6,
+        Equip = 7,
+        Unequip = 8
     }
 
     /// <summary>
@@ -71,6 +73,14 @@ namespace ShootyShootyRL.Objects
                 case ActionType.Take:
                     if (param.GetType() != typeof(TakeActionParameters))
                         throw new Exception("Tried to construct Action of type TAKE, but parameters are not TakeActionParameters!");
+                    break;
+                case ActionType.Equip:
+                    if (param.GetType() != typeof(EquipActionParameters))
+                        throw new Exception("Tried to construct Action of type EQUIP, but parameters are not EquipActionParameters!");
+                    break;
+                case ActionType.Unequip:
+                    if (param.GetType() != typeof(UnequipActionParameters))
+                        throw new Exception("Tried to construct Action of type UNEQUIP, but parameters are not UnequipActionParameters!");
                     break;
             }
 
@@ -110,6 +120,26 @@ namespace ShootyShootyRL.Objects
         {
             this.guid = guid;
             map = m;
+        }
+    }
+
+    public class EquipActionParameters : ActionParameters
+    {
+        public String guid;
+
+        public EquipActionParameters(String guid)
+        {
+            this.guid = guid;
+        }
+    }
+
+    public class UnequipActionParameters : ActionParameters
+    {
+        public EquipmentSlot slot;
+
+        public UnequipActionParameters(EquipmentSlot slot)
+        {
+            this.slot = slot;
         }
     }
 }

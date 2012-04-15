@@ -95,7 +95,12 @@ namespace ShootyShootyRL
 
         int tar_x = -1, tar_y = -1, tar_z = -1;
         int menu_selection = 0;
-        bool player_pickup;
+
+        bool player_pickup = false;
+        bool player_equip = false;
+        bool player_unequip = false;
+
+
         ulong turn = 1;
         ulong gameTurn = 1;
 
@@ -421,32 +426,49 @@ namespace ShootyShootyRL
                         }
                         if (player_pickup)
                         {
-                            //TODO: DO IT LIVE; WITH FUCKING GENERICS YOU IMBECILE!
-                            SortedDictionary<string, string> guid_name_dict;
+                            List<Item> item_list = new List<Item>();
                             SortedDictionary<char, string> char_name_dict = new SortedDictionary<char, string>();
-                            SortedDictionary<char, string> char_guid_dict = new SortedDictionary<char, string>();
-                            Dictionary<int, char> int_char_dict = new Dictionary<int, char>();
 
                             int ch_int = 97;
-                            int i = 0;
 
-                            guid_name_dict = map.ComposePickUp(player.X, player.Y, player.Z);
-
-                            foreach (KeyValuePair<string, string> kv in guid_name_dict)
+                            item_list = map.ComposePickUp(player.X, player.Y, player.Z);
+                            if (item_list.Count > 0)
                             {
-                                char_name_dict.Add((char)ch_int, kv.Value);
-                                char_guid_dict.Add((char)ch_int, kv.Key);
-                                int_char_dict.Add(i, (char)ch_int);
+                                for (int i = 0; i < item_list.Count; i++)
+                                {
+                                    char_name_dict.Add((char)ch_int, item_list[i].Name);
+                                    ch_int++;
+                                }
 
-                                i++;
-                                ch_int++;
+                                int resp = DisplayInputDialog("Choose which Item to pick up:", char_name_dict);
+
+                                //player.Take(map.ItemList[item_list[resp].GUID], map);
+                                player.Take(item_list[resp], map);
                             }
 
-                            int resp = DisplayInputDialog("Choose which Item to pick up:", char_name_dict);
-
-                            player.Take(map.ItemList[char_guid_dict[int_char_dict[resp]]], map);
-
                             player_pickup = false;
+                        }
+
+                        if (player_equip)
+                        {
+                            List<Item> item_list = player.Inventory.GetItemList();
+                            if (item_list[menu_selection].GetType().IsSubclassOf(typeof(EquippableItem)))
+                            {
+                                EquippableItem sel_item = (EquippableItem)item_list[menu_selection];
+                                player.DoEquip(sel_item);
+                            }
+                            else
+                            {
+                                Out.SendMessage("Can't equip that item!", Message.MESSAGE_HIGHLIGHT);
+                            }
+
+                            player_equip = false;
+                        }
+
+                        if (player_unequip)
+                        {
+                            //TODO: uneqip by slot
+
                         }
 
                         Stopwatch light = new Stopwatch();
@@ -630,7 +652,6 @@ namespace ShootyShootyRL
 
             player = new Player(1300, 1300, 35, "Player", "A ragged and scruffy-looking individual.", '@', new Body(BODY_DEF_HUMAN), new CharStats(10, 10, 10));
 
-            player.RegisterLightSource(new LightSource(1300, 1300, 35, 50, 10, "Torch", "A torch.", '!', 1.0d));
             player.Init(TCODColor.yellow, Out, player_faction, new Objects.Action(ActionType.Idle, null, player, 0.0d));
 
             Out.SendMessage("Welcome to [insert game name here]!", Message.MESSAGE_WELCOME);
@@ -677,9 +698,13 @@ namespace ShootyShootyRL
             Item temp = new Item(1302, 1300, 31, "Apple", "A tasty red apple. Possibly Braeburn.", 'F', 0.3d);
             temp.Init(TCODColor.red, Out);
 
+            LightSource p_torch = new LightSource(1300, 1300, 31, 50, 10, "Torch", "A torch.", '!', 1.0d);
+            p_torch.Init(TCODColor.orange, Out);
+
             map.AddItem(testgun);
             map.AddItem(testmag);
             map.AddItem(temp);
+            map.AddItem(p_torch);
 
 
             //AICreature testai2 = new AICreature(290, 290, 15, "TEST2", "TEST CREATURE PLEASE IGNORE", 'B');
@@ -960,15 +985,28 @@ namespace ShootyShootyRL
                 case '>':
                     tar_z = player.Z + 1;
                     return true;
+
+                case 't':
+                    player_pickup = true;
+                    return true;
+                case 'e':
+                    if (mdm == MainDisplayMode.Inventory)
+                    {
+                        player_equip = true;
+                        return true;
+                    }
+                    return false;
+                case 'u':
+                    if (mdm == MainDisplayMode.Inventory)
+                    {
+                        player_unequip = true;
+                        return true;
+                    }
+                    return false;
             }
 
             #endregion
 
-            if (key.Character == 't')
-            {
-                player_pickup = true;
-                return true;
-            }
 
             if (key.Character == 'i')
             {
@@ -1247,6 +1285,17 @@ namespace ShootyShootyRL
                         con.setForegroundColor(TCODColor.darkAzure);
                     }
 
+                    if (item_list[i].GetType().IsSubclassOf(typeof(EquippableItem)))
+                    {
+                        EquippableItem ei = (EquippableItem)item_list[i];
+                        if (ei.IsEquipped())
+                        {
+                            con.setBackgroundFlag(TCODBackgroundFlag.Set);
+                            con.setBackgroundColor(TCODColor.lightAzure);
+                            con.setBackgroundFlag(TCODBackgroundFlag.Default);
+                        }
+                    }
+
                     con.print(con_x + 3, con_y + 7 + it, item_list[i].Name);
                     it++;
                 }
@@ -1295,8 +1344,10 @@ namespace ShootyShootyRL
 
                 //Item actions
                 con.hline(width / 2 + 1, height - 4 - 5, width / 2 - 2);
-                con.print(width / 2 + 2, height - 4 - 4, "R/M/T - Equip Rngd/Mlee/Thrwn");
-                con.print(width / 2 + 2, height - 4 - 3, "    E - Equip Armor");
+                //con.print(width / 2 + 2, height - 4 - 4, "R/M/T - Equip Rngd/Mlee/Thrwn");
+                //con.print(width / 2 + 2, height - 4 - 3, "  E/L - Equip Armor/Lightsrc");
+                con.print(width / 2 + 2, height - 4 - 4, "    E - Equip");
+                con.print(width / 2 + 2, height - 4 - 3, "    U - Unequip");
                 con.print(width / 2 + 2, height - 4 - 2, "    D - Drop Item");
                 con.print(width / 2 + 2, height - 4 - 1, "    Q - Quit");
                 con.print(width / 2 + 2, height - 4 + 0, "  +,- - Select");

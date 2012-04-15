@@ -100,6 +100,11 @@ namespace ShootyShootyRL.Systems
             int y = 2;
             int cap_lines = 0;
 
+            con.setBackgroundColor(TCODColor.black);
+            con.setBackgroundFlag(TCODBackgroundFlag.Set);
+            con.clear();
+            con.setBackgroundFlag(TCODBackgroundFlag.Default);
+
             con.setForegroundColor(TCODColor.darkerAzure);
             con.printFrame(0, 0, con.getWidth(), con.getHeight());
             con.setForegroundColor(TCODColor.white);

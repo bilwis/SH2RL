@@ -9,7 +9,7 @@ using ShootyShootyRL.Mapping;
 namespace ShootyShootyRL.Objects
 {
     [Serializable()]
-    public class LightSource:Item
+    public class LightSource:EquippableItem
     {
         private int level;
         private int radius;
@@ -84,7 +84,7 @@ namespace ShootyShootyRL.Objects
         }
 
         public LightSource(int x, int y, int z, int level, int radius, string name, string desc, char displ_char, double weight):
-            base(x,y,z,name, desc, displ_char, weight)
+            base(x,y,z,name, desc, displ_char, weight, EquipmentSlot.Light)
         {
             this.x = x;
             this.y = y;
@@ -179,6 +179,21 @@ namespace ShootyShootyRL.Objects
                 return Lightmap;
 
             Lightmap = new int[radius * 2, radius * 2];
+            if (LightRadius == 0)
+            {
+                for (int x = -radius; x < radius; x++)
+                {
+                    for (int y = -radius; y < radius; y++)
+                    {
+                        Lightmap[x + radius, y + radius] = 0;
+                    }
+                }
+
+                SetRecalculated();
+                return Lightmap;
+            }
+
+
             int l;
             double coef, sqdist;
 
@@ -240,6 +255,23 @@ namespace ShootyShootyRL.Objects
             recalc = true;
         }
 
+        public override void OnPickUp()
+        {
+            Deactivate();
+            base.OnPickUp();
+        }
+
+        public override void OnEquip()
+        {
+            Activate();
+            equipped = true;
+        }
+
+        public override void OnUnequip()
+        {
+            Deactivate();
+            equipped = false;
+        }
 
 
     }

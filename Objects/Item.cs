@@ -26,7 +26,7 @@ namespace ShootyShootyRL.Objects
     [Serializable()]
     public class Item:Object
     {
-
+        public bool InInventory = false;
         public double Weight;
         
         public override void SetPosition(int x, int y, int z)
@@ -47,6 +47,18 @@ namespace ShootyShootyRL.Objects
         public override void SetVisible(bool value)
         {
             _visible = value;
+        }
+
+        public virtual void OnPickUp()
+        {
+            _visible = false;
+            InInventory = true;
+        }
+
+        public virtual void OnDrop()
+        {
+            InInventory = false;
+            _visible = true;
         }
 
         public virtual bool Tick()
@@ -85,5 +97,32 @@ namespace ShootyShootyRL.Objects
 
             _char = displaychar;
         }
+    }
+
+    [Serializable()]
+    public abstract class EquippableItem : Item
+    {
+        public static bool Equippable = true;
+        protected bool equipped;
+        protected EquipmentSlot slot;
+
+        public abstract void OnEquip();
+        public abstract void OnUnequip();
+
+        public bool IsEquipped()
+        {
+            return equipped;
+        }
+        public EquipmentSlot GetSlot()
+        {
+            return slot;
+        }
+
+        public EquippableItem(int x, int y, int z, String name, String desc, char displaychar, double weight, EquipmentSlot slot):
+            base(x, y,  z,  name,  desc,  displaychar,  weight)
+        {
+            this.slot = slot;
+        }
+
     }
 }

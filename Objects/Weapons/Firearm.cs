@@ -25,7 +25,7 @@ namespace ShootyShootyRL.Objects
     }
 
     [Serializable()]
-    public class Firearm:Item
+    public class Firearm:EquippableItem
     {
         public Caliber caliber;
         public GunType type;
@@ -37,7 +37,7 @@ namespace ShootyShootyRL.Objects
         //attachments, weapon xp, ...
 
         public Firearm(int x, int y, int z, String name, String desc, char displaychar, double weight, Caliber cal, GunType type, List<FireMode> modes, int mag_cap):
-            base(x,y,z,name,desc,displaychar, weight)
+            base(x,y,z,name,desc,displaychar, weight, EquipmentSlot.Ranged)
         {
             caliber = cal;
             this.type = type;
@@ -56,6 +56,16 @@ namespace ShootyShootyRL.Objects
             }
 
             return false;
+        }
+
+        public override void OnEquip()
+        {
+            this.equipped = true;
+        }
+
+        public override void OnUnequip()
+        {
+            this.equipped = false;
         }
 
     }

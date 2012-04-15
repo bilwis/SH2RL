@@ -36,6 +36,7 @@ namespace ShootyShootyRL.Objects
         public Body Body;
         public CharStats Stats;
         public WeightedInventory<Item> Inventory;
+        public Equipment<EquippableItem> Equip;
 
         protected double energy;
         protected double energyReg;
@@ -64,6 +65,8 @@ namespace ShootyShootyRL.Objects
         public double EMovementCost = 15;
         public double EDiagMovementCost = 19;
         public double ETakeCostPerWeight = 1;
+        public double EEquipCostPerWeight = 0.1;
+        public double EUnequipCostPerWeight = 0.05;
 
         public override void SetVisible(bool value)
         {
@@ -72,6 +75,11 @@ namespace ShootyShootyRL.Objects
 
         public override void SetPosition(int x, int y, int z)
         {
+            foreach (Item i in Inventory.GetItemList())
+            {
+                i.SetPosition(x, y, z);
+            }
+
             this.x = x;
             this.y = y;
             this.z = z;
@@ -80,6 +88,24 @@ namespace ShootyShootyRL.Objects
         public void Take(Item i, Map m)
         {
             Actions.Enqueue(new Action(ActionType.Take, new TakeActionParameters(i.GUID, m), this, ETakeCostPerWeight * i.Weight));
+        }
+
+        public void DoEquip(EquippableItem i)
+        {
+            double cost = EEquipCostPerWeight * i.Weight;
+            if (Equip.SlotFilled((int)i.GetSlot()))
+                cost += EUnequipCostPerWeight * Equip[(int)i.GetSlot()].Weight;
+
+            Actions.Enqueue(new Action(ActionType.Equip, new EquipActionParameters(i.GUID), this, cost));
+        }
+
+        public void Unequip(EquipmentSlot slot)
+        {
+            Item i = Equip[(int)slot];
+            if (i == null)
+                return;
+
+            Actions.Enqueue(new Action(ActionType.Unequip, new UnequipActionParameters(slot), this, EUnequipCostPerWeight * i.Weight));
         }
 
         public void Move(int x, int y, int z, Map m, bool overrideAll = false)
@@ -159,6 +185,7 @@ namespace ShootyShootyRL.Objects
                             return false; //Taking item failed (weight)
                         //Remove from map
                         t_param.map.ItemList.Remove(t_param.guid);
+                        item.OnPickUp();
                         if (typeof(Player) == this.GetType())
                             _messageHandler.SendMessage("Picked up " + item.Name + "!");
 
@@ -166,6 +193,49 @@ namespace ShootyShootyRL.Objects
                     }
 
                     return false; //Item not in same position
+                case ActionType.Equip:
+                    EquipActionParameters e_param = (EquipActionParameters)a.Param;
+
+                    Item temp_new;
+                    if (!Inventory.TryGetValue(e_param.guid, out temp_new))
+                        return false;   //Item not in Inventory
+
+                    EquippableItem item_new, item_old;
+                    if (!temp_new.GetType().IsSubclassOf(typeof(EquippableItem)))
+                        return false;   //Item not equippable;
+
+                    item_new = (EquippableItem)temp_new; //Convert
+                    bool repl = Equip.TryGetItem((int)item_new.GetSlot(), out item_old); //Replacing old item or filling slot anew?
+
+                    if (!repl)
+                    {
+                        if (Equip.Equip((int)item_new.GetSlot(), item_new))
+                        {
+                            _messageHandler.SendMessage("Equipped " + item_new.Name + " in Slot " + item_new.GetSlot().ToString() + ".");
+                            return true;
+                        }
+                    }
+                    else
+                    {
+                        if (Equip.Replace((int)item_new.GetSlot(), item_new))
+                        {
+                            _messageHandler.SendMessage("Swapped out " + item_old.Name + " in Slot " + item_new.GetSlot().ToString() + " for " + item_new.Name + ".");
+                            return true;
+                        }
+                    }
+                    return false; //Failsafe
+
+                case ActionType.Unequip:
+                    UnequipActionParameters ue_param = (UnequipActionParameters)a.Param;
+
+                    if (!Equip.SlotFilled((int)ue_param.slot))
+                        return false; //Slot is already empty
+
+                    EquippableItem uneq_item = Equip.Unequip((int)ue_param.slot);
+                    _messageHandler.SendMessage("Removed " + uneq_item.Name + " from Slot " + ue_param.slot.ToString() + ".");
+
+                    return true;
+
             }
             return false;
         }
@@ -219,6 +289,7 @@ namespace ShootyShootyRL.Objects
             this.Body = body;
             this.Stats = stats;
             Inventory = new WeightedInventory<Item>(Stats.GetCarryCapacity());
+            Equip = new Equipment<EquippableItem>();
 
             energy = 0;
             energyReg = 1.0d;
@@ -228,9 +299,6 @@ namespace ShootyShootyRL.Objects
     [Serializable()]
     public class Player:Creature
     {
-        public LightSource Lightsource;
-        public Firearm EquippedWeapon;
-
         protected override bool checkMovement(MovementActionParameters param)
         {
             //_messageHandler.SendDebugMessage("CONSIDERING MOVEMENT FOR " + _name + " WITH PLAYER checkMovement(param)");
@@ -245,16 +313,24 @@ namespace ShootyShootyRL.Objects
 
         public override void SetPosition(int x, int y, int z)
         {
-            Lightsource.SetPosition(x, y, z);
-            if (EquippedWeapon != null)
-                EquippedWeapon.SetPosition(x, y, z);
+            //Lightsource.SetPosition(x, y, z);
+            //if (EquippedWeapon != null)
+            //    EquippedWeapon.SetPosition(x, y, z);
+
+            //if (Equip.SlotFilled((int)EquipmentSlot.Light))
+            //{
+            //    LightSource ls = (LightSource)Equip[(int)EquipmentSlot.Light];
+            //    ls.SetPosition(x, y, z);
+            //}
 
             base.SetPosition(x, y, z);
         }
 
-        public void RegisterLightSource(LightSource ls)
+        public void EquipLight(LightSource ls)
         {
-            Lightsource = ls;
+            Equip[(int)EquipmentSlot.Light].OnUnequip();
+            Equip.Equip((int)EquipmentSlot.Light, ls);
+            Equip[(int)EquipmentSlot.Light].OnEquip();
         }
 
         public void AttackRanged(Creature target)
@@ -271,28 +347,28 @@ namespace ShootyShootyRL.Objects
 
         public void EquipMagazine(Magazine m)
         {
-            if (EquippedWeapon != null)
-            {
-                EquippedWeapon.Reload(m);
-                _messageHandler.SendMessage(Name + " reloads his " + EquippedWeapon.Name + " with a " +  m.Name + ".");
-            }
+            //if (EquippedWeapon != null)
+            //{
+            //    EquippedWeapon.Reload(m);
+            //    _messageHandler.SendMessage(Name + " reloads his " + EquippedWeapon.Name + " with a " +  m.Name + ".");
+            //}
         }
 
         public void EquipWeapon(Firearm f)
         {
-            EquippedWeapon = f;
-            EquippedWeapon.SetVisible(false);
+            //EquippedWeapon = f;
+            //EquippedWeapon.SetVisible(false);
 
-            _messageHandler.SendMessage(Name + " picks up a " + EquippedWeapon.Name + ".");
+            //_messageHandler.SendMessage(Name + " picks up a " + EquippedWeapon.Name + ".");
         }
 
         public override void Init(TCODColor fore, MessageHandler messageHandler, Faction fac, Action firstAction)
         {
-            Lightsource.Init(fore, messageHandler);
-            Lightsource.Activate();
+            //Lightsource.Init(fore, messageHandler);
+            //Lightsource.Activate();
 
-            if (EquippedWeapon != null)
-                EquippedWeapon.Init(fore, messageHandler);
+            //if (EquippedWeapon != null)
+            //    EquippedWeapon.Init(fore, messageHandler);
 
             base.Init(fore, messageHandler, fac, firstAction);
         }

@@ -1365,6 +1365,33 @@ namespace ShootyShootyRL.Mapping
                 }
             }
 
+            foreach (Creature c in CreatureList.GetValues())
+            {
+                foreach (Item i in c.Inventory.GetItemList())
+                {
+                    if (i.GetType() == typeof(LightSource))
+                    {
+                        LightSource s = (LightSource)i;
+                        if (s.DoRecalculate)
+                        {
+                            sources.Add(s);
+                        }
+                    }
+                }
+
+                //if (c.Equip.SlotFilled((int)EquipmentSlot.Light))
+                //{
+                //    LightSource ls = (LightSource)c.Equip[(int)EquipmentSlot.Light];
+                //    if (ls != null)
+                //    {
+                //        if (ls.DoRecalculate)
+                //        {
+                //            sources.Add(ls);
+                //        }
+                //    }
+                //}
+            }
+
             //Do the actual calculations
             foreach (LightSource ls in sources)
             {
@@ -1400,8 +1427,11 @@ namespace ShootyShootyRL.Mapping
             //  because it assumes it to be an Item)
             foreach (LightSource ls in sources)
             {
-                ItemList.Remove(ls.GUID);
-                ItemList.Add(ls);
+                if (ItemList.ContainsKey(ls.GUID))
+                {
+                    ItemList.Remove(ls.GUID);
+                    ItemList.Add(ls);
+                }
             }
 
             sun_level_changed = false;
@@ -1473,6 +1503,18 @@ namespace ShootyShootyRL.Mapping
                     LightSource s = (LightSource)i;
                     if (s.Z == z)
                         sources.Add(s);
+                }
+            }
+            foreach (Creature c in CreatureList.GetValues())
+            {
+
+                if (c.Equip.SlotFilled((int)EquipmentSlot.Light))
+                {
+                    LightSource ls = (LightSource)c.Equip[(int)EquipmentSlot.Light];
+                    if (ls != null)
+                    {
+                            sources.Add(ls);
+                    }
                 }
             }
 
@@ -1575,18 +1617,18 @@ namespace ShootyShootyRL.Mapping
             return temp;
         }
 
-        public SortedDictionary<String, String> ComposePickUp(int abs_x, int abs_y, int abs_z)
+        public List<Item> ComposePickUp(int abs_x, int abs_y, int abs_z)
         {
             if (!isCoordinateLoaded(abs_x, abs_y, abs_z))
                 return null;
 
-            SortedDictionary<String, String> temp = new SortedDictionary<string, string>();
+            List<Item> temp = new List<Item>();
 
             foreach (Item i in ItemList.GetValues())
             {
-                if (i.X == abs_x && i.Y == abs_y && i.Z == abs_z)
+                if (i.X == abs_x && i.Y == abs_y && i.Z == abs_z && i.IsVisible)
                 {
-                    temp.Add(i.GUID, i.Name);
+                    temp.Add(i);
                 }
             }
 
@@ -1790,8 +1832,6 @@ namespace ShootyShootyRL.Mapping
                 if (c.GetType() == typeof(Player))
                 {
                     Player p = (Player)c;
-                    ItemList.Remove(p.Lightsource.GUID);
-                    ItemList.Add(p.Lightsource);
                 }
             }
 

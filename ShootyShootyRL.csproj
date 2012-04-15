@@ -50,6 +50,7 @@
     <Compile Include="Objects\Body\Organ.cs" />
     <Compile Include="Objects\CharStats.cs" />
     <Compile Include="Objects\Creature.cs" />
+    <Compile Include="Objects\Equipment.cs" />
     <Compile Include="Objects\Faction.cs" />
     <Compile Include="Objects\Inventory.cs" />
     <Compile Include="Objects\Weapons\Ammo.cs" />
@@ -58,6 +59,8 @@
     <Compile Include="Program.cs" />
     <Compile Include="Systems\Dialog.cs" />
     <Compile Include="Objects\LightSource.cs" />
+    <None Include="Systems\Forms\Label.cs" />
+    <None Include="Systems\Forms\Panel.cs" />
     <Compile Include="Systems\Particle.cs" />
     <Compile Include="Systems\ParticleEmitter.cs" />
     <Compile Include="Systems\Util.cs" />
@@ -104,9 +107,6 @@
     <Content Include="zlib1.dll">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="ClassDiagram1.cd" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
