@@ -92,6 +92,7 @@
     <Content Include="libtcod-net-unmanaged.dll">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <Content Include="libtcod-net.dll" />
     <Content Include="libtcod-VS.dll">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
