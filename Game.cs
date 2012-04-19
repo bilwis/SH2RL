@@ -467,8 +467,19 @@ namespace ShootyShootyRL
 
                         if (player_unequip)
                         {
-                            //TODO: uneqip by slot
+                            List<Item> item_list = player.Inventory.GetItemList();
+                            if (item_list[menu_selection].GetType().IsSubclassOf(typeof(EquippableItem)))
+                            {
 
+                                EquippableItem sel_item = (EquippableItem)item_list[menu_selection];
+                                player.Unequip(sel_item.GetSlot());
+                            }
+                            else
+                            {
+                                Out.SendMessage("Can't unequip that item!", Message.MESSAGE_HIGHLIGHT);
+                            }
+
+                            player_unequip = false;
                         }
 
                         Stopwatch light = new Stopwatch();
@@ -1274,6 +1285,8 @@ namespace ShootyShootyRL
                 //Item list
                 for (int i = top; i < bottom; i++)
                 {
+                    con.setBackgroundFlag(TCODBackgroundFlag.Default);
+
                     if (i == menu_selection)
                     {
                         //con.setBackgroundFlag(TCODBackgroundFlag.Set);
@@ -1292,7 +1305,6 @@ namespace ShootyShootyRL
                         {
                             con.setBackgroundFlag(TCODBackgroundFlag.Set);
                             con.setBackgroundColor(TCODColor.lightAzure);
-                            con.setBackgroundFlag(TCODBackgroundFlag.Default);
                         }
                     }
 
@@ -1300,6 +1312,7 @@ namespace ShootyShootyRL
                     it++;
                 }
 
+                con.setBackgroundFlag(TCODBackgroundFlag.Default);
 
                 con.setForegroundColor(TCODColor.darkAzure);
                 int left_offset = width / 2 + 1;

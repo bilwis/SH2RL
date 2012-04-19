@@ -59,8 +59,6 @@
     <Compile Include="Program.cs" />
     <Compile Include="Systems\Dialog.cs" />
     <Compile Include="Objects\LightSource.cs" />
-    <None Include="Systems\Forms\Label.cs" />
-    <None Include="Systems\Forms\Panel.cs" />
     <Compile Include="Systems\Particle.cs" />
     <Compile Include="Systems\ParticleEmitter.cs" />
     <Compile Include="Systems\Util.cs" />

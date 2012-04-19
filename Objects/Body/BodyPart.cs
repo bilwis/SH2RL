@@ -10,7 +10,6 @@ namespace ShootyShootyRL.Objects.Bodies
     {
         public String GUID;
         public float Surface;
-        public float Weight;
         public bool IsEssential;
 
         public int rgb;
@@ -19,6 +18,7 @@ namespace ShootyShootyRL.Objects.Bodies
         public BodyPart parent;
 
         List<Organ> organs;
+        //TODO: Armor (as faux-organ with hit-prob representing coverage and resistance rep. strength)
 
         public bool IsSevered;
         public bool IsSymetrical; //only for construction/information, organs are already inserted twice!
