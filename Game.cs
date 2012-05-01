@@ -39,9 +39,15 @@ namespace ShootyShootyRL
         Inventory = 1,
         Character = 2,
         Crafting = 3,
-        Log = 4
+        Log = 4,
+        Cursor = 5
     }
 
+    enum SelectionMode
+    {
+        Item = 0,
+        Creature = 1
+    }
 
     class Game
     {
@@ -94,12 +100,16 @@ namespace ShootyShootyRL
         Random rand;
 
         int tar_x = -1, tar_y = -1, tar_z = -1;
+        int cur_rel_x = 0, cur_rel_y = 0;
+
         int menu_selection = 0;
 
         bool player_pickup = false;
         bool player_equip = false;
         bool player_unequip = false;
+        bool player_attack_ranged = false;
 
+        bool lock_cursor = false;
 
         ulong turn = 1;
         ulong gameTurn = 1;
@@ -379,6 +389,18 @@ namespace ShootyShootyRL
 
         }
 
+        private void moveCursor(int tar_x, int tar_y)
+        {
+            if (cur_rel_x + tar_x > 0 && cur_rel_x + tar_x < WINDOW_WIDTH - 2)
+            {
+                cur_rel_x += tar_x;
+            }
+            if (cur_rel_y + tar_y > 0 && cur_rel_y + tar_y < MAIN_HEIGHT)
+            {
+                cur_rel_y += tar_y;
+            }
+        }
+
         public void Run()
         {
             //Stopwatch sw = new Stopwatch();
@@ -420,67 +442,27 @@ namespace ShootyShootyRL
                             dbconn.Dispose();
                             break;
                         }
-                        if (tar_x != player.X || tar_y != player.Y || tar_z != player.Z)
+                        
+                        if (mdm == MainDisplayMode.Game && (tar_x != 0 || tar_y != 0 || tar_z != 0))
                         {
+                            tar_x += player.X;
+                            tar_y += player.Y;
+                            tar_z += player.Z;
+
                             player.Move(tar_x, tar_y, tar_z, map);
                         }
+
                         if (player_pickup)
-                        {
-                            List<Item> item_list = new List<Item>();
-                            SortedDictionary<char, string> char_name_dict = new SortedDictionary<char, string>();
-
-                            int ch_int = 97;
-
-                            item_list = map.ComposePickUp(player.X, player.Y, player.Z);
-                            if (item_list.Count > 0)
-                            {
-                                for (int i = 0; i < item_list.Count; i++)
-                                {
-                                    char_name_dict.Add((char)ch_int, item_list[i].Name);
-                                    ch_int++;
-                                }
-
-                                int resp = DisplayInputDialog("Choose which Item to pick up:", char_name_dict);
-
-                                //player.Take(map.ItemList[item_list[resp].GUID], map);
-                                player.Take(item_list[resp], map);
-                            }
-
-                            player_pickup = false;
-                        }
+                            playerPickup();
 
                         if (player_equip)
-                        {
-                            List<Item> item_list = player.Inventory.GetItemList();
-                            if (item_list[menu_selection].GetType().IsSubclassOf(typeof(EquippableItem)))
-                            {
-                                EquippableItem sel_item = (EquippableItem)item_list[menu_selection];
-                                player.DoEquip(sel_item);
-                            }
-                            else
-                            {
-                                Out.SendMessage("Can't equip that item!", Message.MESSAGE_HIGHLIGHT);
-                            }
-
-                            player_equip = false;
-                        }
+                            playerEquip();
 
                         if (player_unequip)
-                        {
-                            List<Item> item_list = player.Inventory.GetItemList();
-                            if (item_list[menu_selection].GetType().IsSubclassOf(typeof(EquippableItem)))
-                            {
+                            playerUnequip();
 
-                                EquippableItem sel_item = (EquippableItem)item_list[menu_selection];
-                                player.Unequip(sel_item.GetSlot());
-                            }
-                            else
-                            {
-                                Out.SendMessage("Can't unequip that item!", Message.MESSAGE_HIGHLIGHT);
-                            }
-
-                            player_unequip = false;
-                        }
+                        if (player_attack_ranged)
+                            playerAttackRanged(); //TODO: Selecting stuff (perhaps a out of game loop "select()" function ?)
 
                         Stopwatch light = new Stopwatch();
                         light.Start();
@@ -514,6 +496,97 @@ namespace ShootyShootyRL
                     effects_timer.Restart();
                 }
             }
+        }
+
+        public Object Select(SelectionMode mode, int abs_cur_x = 0, int abs_cur_y = 0)
+        {
+            mdm = MainDisplayMode.Cursor;
+            cur_rel_x = WINDOW_WIDTH / 2;
+            cur_rel_y = MAIN_HEIGHT / 2;
+            lock_cursor = false;
+
+            bool redraw = true;
+
+            //Cursor position
+            while (!lock_cursor)
+            {
+                var key = TCODConsole.checkForKeypress(1);
+
+                if (key.KeyCode != TCODKeyCode.NoKey)
+                {
+                    if (HandleInput(key))
+                    {
+                        if (mdm == MainDisplayMode.Cursor)
+                        {
+                            moveCursor(tar_x, tar_y);
+                        }
+
+
+                        redraw = true;
+                        turn++;
+                    }
+                }
+
+                if (redraw)
+                {
+                    RenderAll();
+                    redraw = false;
+                }
+                //if (effects_timer.ElapsedMilliseconds >= EFFECT_RATE_MS)
+                //{
+                //    //if (emit.abs_z == player.Z)
+                //    //    emit.Tick((int)effects_timer.ElapsedMilliseconds);
+
+                //    //RenderEffects();
+                //    effects_timer.Restart();
+                //}
+            }
+
+            mdm = MainDisplayMode.Game;
+
+            int cur_abs_x, cur_abs_y;
+
+            cur_abs_x = player.X - (WINDOW_WIDTH / 2) + cur_rel_x;
+            cur_abs_y = player.Y - (MAIN_HEIGHT / 2) + cur_rel_y;
+
+            int ch_int = 97;
+
+            switch (mode)
+            {
+                case SelectionMode.Creature:
+                    List<Creature> c_list = new List<Creature>();
+                    c_list = map.ComposeCreatures(cur_abs_x, cur_abs_y, player.Z);
+                    if (c_list.Count == 0)
+                        return null;
+                    if (c_list.Count == 1)
+                        return c_list[0];
+
+                    SortedDictionary<char, string> sel = new SortedDictionary<char, string>();
+                    for (int i = 0; i < c_list.Count; i++)
+                    {
+                        sel.Add((char)(ch_int+i), c_list[i].Name);
+                    }
+                    int resp = DisplayInputDialog("Select creature: ", sel);
+                    return c_list[resp];
+
+                case SelectionMode.Item:
+                    List<Item> i_list = new List<Item>();
+                    i_list = map.ComposeItems(cur_abs_x, cur_abs_y, player.Z);
+                    if (i_list.Count == 0)
+                        return null;
+                    if (i_list.Count == 1)
+                        return i_list[0];
+
+                    SortedDictionary<char, string> sel_i = new SortedDictionary<char, string>();
+                    for (int i = 0; i < i_list.Count; i++)
+                    {
+                        sel_i.Add((char)(ch_int+i), i_list[i].Name);
+                    }
+                    int resp_i = DisplayInputDialog("Select item: ", sel_i);
+                    return i_list[resp_i];
+            }
+
+            return null;
         }
 
         public void InitLoad(string profile_name)
@@ -940,40 +1013,43 @@ namespace ShootyShootyRL
         public bool HandleInput(TCODKey key)
         {
             #region "Player Input"
-            tar_y = player.Y;
-            tar_x = player.X;
-            tar_z = player.Z;
+            //tar_y = player.Y;
+            //tar_x = player.X;
+            //tar_z = player.Z;
+            tar_x = 0;
+            tar_y = 0;
+            tar_z = 0;
 
             switch (key.KeyCode)
             {
                 //MOVEMENT
                 case TCODKeyCode.KeypadEight:
-                    tar_y = player.Y - 1;
+                    tar_y = - 1;
                     return true;
                 case TCODKeyCode.KeypadSix:
-                    tar_x = player.X + 1;
+                    tar_x =  1;
                     return true;
                 case TCODKeyCode.KeypadTwo:
-                    tar_y = player.Y + 1;
+                    tar_y = 1;
                     return true;
                 case TCODKeyCode.KeypadFour:
-                    tar_x = player.X - 1;
+                    tar_x = - 1;
                     return true;
                 case TCODKeyCode.KeypadNine:
-                    tar_y = player.Y - 1;
-                    tar_x = player.X + 1;
+                    tar_y =  - 1;
+                    tar_x =  + 1;
                     return true;
                 case TCODKeyCode.KeypadThree:
-                    tar_y = player.Y + 1;
-                    tar_x = player.X + 1;
+                    tar_y =  + 1;
+                    tar_x =  + 1;
                     return true;
                 case TCODKeyCode.KeypadOne:
-                    tar_y = player.Y + 1;
-                    tar_x = player.X - 1;
+                    tar_y =  + 1;
+                    tar_x =  - 1;
                     return true;
                 case TCODKeyCode.KeypadSeven:
-                    tar_y = player.Y - 1;
-                    tar_x = player.X - 1;
+                    tar_y =  - 1;
+                    tar_x =  - 1;
                     return true;
                 case TCODKeyCode.KeypadFive:
                     return true;
@@ -984,6 +1060,9 @@ namespace ShootyShootyRL
                     return true;
                 case TCODKeyCode.KeypadSubtract:
                     menu_selection--;
+                    return true;
+                case TCODKeyCode.KeypadEnter:
+                    lock_cursor = true;
                     return true;
 
             }
@@ -1014,6 +1093,12 @@ namespace ShootyShootyRL
                         return true;
                     }
                     return false;
+                case 'a':
+                    if (mdm == MainDisplayMode.Game)
+                    {
+                        player_attack_ranged = true;
+                    }
+                    return true;
             }
 
             #endregion
@@ -1024,6 +1109,13 @@ namespace ShootyShootyRL
                 mdm = MainDisplayMode.Inventory;
                 menu_selection = 0;
                 return true;
+            }
+
+            if (key.Character == 'c')
+            {
+                Item i = (Item)Select(SelectionMode.Item);
+                //Creature c = (Creature)Select(SelectionMode.Creature);
+                return false;
             }
 
             if (key.Character == 'q')
@@ -1125,6 +1217,79 @@ namespace ShootyShootyRL
             }
 
             return false;
+        }
+
+        private void playerPickup()
+        {
+            List<Item> item_list = new List<Item>();
+            SortedDictionary<char, string> char_name_dict = new SortedDictionary<char, string>();
+
+            int ch_int = 97;
+
+            item_list = map.ComposeItems(player.X, player.Y, player.Z);
+            if (item_list.Count > 0)
+            {
+                for (int i = 0; i < item_list.Count; i++)
+                {
+                    char_name_dict.Add((char)ch_int, item_list[i].Name);
+                    ch_int++;
+                }
+
+                int resp = DisplayInputDialog("Choose which Item to pick up:", char_name_dict);
+                if (resp == -1)
+                {
+                    player_pickup = false;
+                    return;
+                }
+
+                //player.Take(map.ItemList[item_list[resp].GUID], map);
+                player.Take(item_list[resp], map);
+            }
+
+            player_pickup = false;
+        }
+
+        private void playerDrop()
+        {
+
+        }
+
+        private void playerEquip()
+        {
+            List<Item> item_list = player.Inventory.GetItemList();
+            if (item_list[menu_selection].GetType().IsSubclassOf(typeof(EquippableItem)))
+            {
+                EquippableItem sel_item = (EquippableItem)item_list[menu_selection];
+                player.DoEquip(sel_item);
+            }
+            else
+            {
+                Out.SendMessage("Can't equip that item!", Message.MESSAGE_HIGHLIGHT);
+            }
+
+            player_equip = false;
+        }
+
+        private void playerUnequip()
+        {
+            List<Item> item_list = player.Inventory.GetItemList();
+            if (item_list[menu_selection].GetType().IsSubclassOf(typeof(EquippableItem)))
+            {
+
+                EquippableItem sel_item = (EquippableItem)item_list[menu_selection];
+                player.Unequip(sel_item.GetSlot());
+            }
+            else
+            {
+                Out.SendMessage("Can't unequip that item!", Message.MESSAGE_HIGHLIGHT);
+            }
+
+            player_unequip = false;
+        }
+
+        private void playerAttackRanged()
+        {
+
         }
 
         public void RenderEffects(bool render = true)
@@ -1422,6 +1587,7 @@ namespace ShootyShootyRL
             switch (mdm)
             {
                 case MainDisplayMode.Game:
+                case MainDisplayMode.Cursor:
                     map.Render(main, 1, main_y, WINDOW_WIDTH - 2, main_height);
                     break;
                 case MainDisplayMode.Inventory:
@@ -1430,6 +1596,11 @@ namespace ShootyShootyRL
                     break;
             }
 
+            if (mdm == MainDisplayMode.Cursor)
+            {
+                main.setForegroundColor(TCODColor.azure);
+                main.print(cur_rel_x, cur_rel_y, "X");
+            }
 
             if (render_dialog)
             {

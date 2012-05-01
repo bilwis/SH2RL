@@ -1617,7 +1617,7 @@ namespace ShootyShootyRL.Mapping
             return temp;
         }
 
-        public List<Item> ComposePickUp(int abs_x, int abs_y, int abs_z)
+        public List<Item> ComposeItems(int abs_x, int abs_y, int abs_z)
         {
             if (!isCoordinateLoaded(abs_x, abs_y, abs_z))
                 return null;
@@ -1630,6 +1630,22 @@ namespace ShootyShootyRL.Mapping
                 {
                     temp.Add(i);
                 }
+            }
+
+            return temp;
+        }
+
+        public List<Creature> ComposeCreatures(int abs_x, int abs_y, int abs_z)
+        {
+            if (!isCoordinateLoaded(abs_x, abs_y, abs_z))
+                return null;
+
+            List<Creature> temp = new List<Creature>();
+
+            foreach (Creature c in CreatureList.GetValues())
+            {
+                if (c.X == abs_x && c.Y == abs_y && c.Z == abs_z && c.IsVisible)
+                    temp.Add(c);
             }
 
             return temp;
